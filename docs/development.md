@@ -10,25 +10,33 @@
 
 로컬 백엔드를 직접 실행할 때는 루트의 `.env.example`을 참고해 `.env`를 설정합니다.
 
+개발 흐름만 확인하려면 OpenAI API 키 없이 fake provider를 사용합니다. 이 설정은 실제 LLM 추론이나 의미 기반 embedding을 만들지 않고, 서버/API/DB 연결 흐름을 확인하기 위한 용도입니다.
+
 ```env
 DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/experience_vault
 LLM_PROVIDER=fake
-LLM_MODEL=gpt-4.1-mini
+LLM_MODEL=gpt-5.4-mini
 EMBEDDING_PROVIDER=fake
 EMBEDDING_MODEL=text-embedding-3-small
 EMBEDDING_DIMENSION=1536
 OPENAI_API_KEY=
 ```
 
-기본값은 fake LLM과 fake embedding을 사용하므로 OpenAI API 키 없이 로컬 테스트가 가능합니다.
-
-OpenAI 연동을 사용할 때만 아래 값을 설정합니다.
+실제 문서에서 경험을 추출하고 RAG 검색에 사용할 embedding을 생성하려면 OpenAI provider와 API 키를 설정합니다.
 
 ```env
+DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/experience_vault
 LLM_PROVIDER=openai
+LLM_MODEL=gpt-5.4-mini
 EMBEDDING_PROVIDER=openai
-OPENAI_API_KEY=...
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_DIMENSION=1536
+OPENAI_API_KEY=sk-...
 ```
+
+`LLM_MODEL`은 비용과 속도를 고려한 기본 추천값으로 `gpt-5.4-mini`를 사용합니다. 품질이 더 중요하면 `gpt-5.5`, 대량 테스트처럼 비용이 더 중요하면 `gpt-5.4-nano`를 사용할 수 있습니다. Embedding은 `text-embedding-3-small`과 `1536` 차원을 유지합니다.
+
+주의: `docker compose up --build`로 백엔드까지 함께 실행할 때는 `docker-compose.yml`의 `backend.environment` 값이 사용됩니다. 루트 `.env`만 수정해도 백엔드 컨테이너 설정이 자동으로 바뀌지는 않으므로, Compose 전체 실행에서 OpenAI를 쓰려면 `docker-compose.yml`의 backend 환경변수도 같은 값으로 맞추거나 `env_file: .env`를 추가해야 합니다.
 
 ## 개발 모드: DB만 Docker Compose로 실행
 
