@@ -26,8 +26,8 @@ MVP 범위가 자기소개서 초안 생성까지 확장되면서 다음 API가 
 
 | Method | Path | 설명 |
 | --- | --- | --- |
-| POST | `/api/recommendations/experiences` | JD/문항 기반 경험 추천 |
-| POST | `/api/cover-letters/drafts` | 추천 경험 기반 자기소개서 초안 생성 |
+| POST | `/api/recommendations/experiences` | JD/문항 기반 문항별 top-k 경험 추천과 추천/비추천 근거 생성 |
+| POST | `/api/cover-letters/drafts` | 사용자가 선택한 경험 기반 자기소개서 초안 생성 |
 
 ## API 사용 순서
 
@@ -39,10 +39,18 @@ MVP 범위가 자기소개서 초안 생성까지 확장되면서 다음 API가 
   -> JD/문항 입력
   -> 경험 추천 요청
   -> 추천 결과 확인
+  -> 문항별 사용할 경험 선택
   -> 보완 질문 답변
   -> 자기소개서 초안 생성 요청
   -> 초안 본문과 사용 근거 확인
+  -> 사이트 내 수정 및 문항별 txt/md export
 ```
+
+## 경험 추천 응답 개념
+
+추천 API는 문항별 top-k 경험 후보를 반환해야 합니다. 각 후보에는 최소한 경험 ID, 추천/보류/비추천 판단, 추천 이유, 추천하지 않는 이유 또는 주의점, 원문 근거, 부족한 정보가 포함되어야 합니다.
+
+사용자는 이 결과를 검토한 뒤 초안 생성에 사용할 경험을 직접 선택합니다. 보완 질문은 사용자가 선택한 경험을 기준으로 생성되며, 초안 생성 요청은 추천 결과 전체가 아니라 사용자가 선택한 경험 ID 목록을 명시적으로 받아야 합니다.
 
 ## 텍스트 입력 예시
 
@@ -63,7 +71,7 @@ MVP 범위가 자기소개서 초안 생성까지 확장되면서 다음 API가 
   "target_role": "백엔드 개발자",
   "job_description": "FastAPI 기반 서비스 개발, PostgreSQL 성능 최적화, 사용자 맞춤 추천 기능 개발 경험 우대",
   "question": "본인의 프로젝트 경험 중 문제를 정의하고 해결한 사례를 설명해주세요.",
-  "recommended_experience_ids": ["experience-id-1"],
+  "selected_experience_ids": ["experience-id-1"],
   "length_limit": 700,
   "tone": "구체적이고 담백한 톤"
 }
@@ -83,6 +91,10 @@ MVP 범위가 자기소개서 초안 생성까지 확장되면서 다음 API가 
   ],
   "missing_information": [
     "해당 개선이 실제 사용자 행동 지표에 어떤 영향을 줬는지 추가하면 초안의 설득력이 높아집니다."
-  ]
+  ],
+  "exports": {
+    "txt": "FastAPI와 PostgreSQL을 활용한 사용자 맞춤 추천 API 개발 과정에서...",
+    "markdown": "FastAPI와 PostgreSQL을 활용한 사용자 맞춤 추천 API 개발 과정에서..."
+  }
 }
 ```

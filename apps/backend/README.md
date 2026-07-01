@@ -23,10 +23,12 @@ KHU:DArchive backend는 사용자의 문서나 텍스트 기록을 받아 경험
 현재 MVP 범위는 경험 추천에서 끝나지 않고 자기소개서 초안 생성까지 포함합니다. 따라서 backend는 다음 흐름을 지원해야 합니다.
 
 1. 지원 직무, JD, 자기소개서 문항 분석
-2. 경험 Vault 검색 및 추천 경험 선정
-3. 부족한 정보 보완 질문 생성과 답변 반영
-4. 추천 경험, 원문 evidence, 보완 답변 기반 자기소개서 초안 생성
-5. 초안에 사용된 경험과 evidence 반환
+2. 경험 Vault 검색 및 문항별 top-k 추천 후보 생성
+3. 추천/보류/비추천 판단과 추천하지 않는 이유를 포함한 근거 생성
+4. 사용자가 선택한 경험 ID 목록 수신
+5. 선택 경험의 부족한 정보 판단, 보완 질문 생성과 답변 반영
+6. 선택 경험, 원문 evidence, 보완 답변 기반 자기소개서 초안 생성
+7. 초안에 사용된 경험, evidence, 문항별 export 데이터 반환
 
 ## 주요 API
 
@@ -58,7 +60,9 @@ KHU:DArchive backend는 사용자의 문서나 텍스트 기록을 받아 경험
 6. 각 chunk의 embedding은 `experience_chunks.embedding`에 저장합니다.
 7. 보완 질문 답변이 들어오면 해당 경험의 필드를 업데이트하고, 기존 chunk를 삭제한 뒤 chunk와 embedding을 다시 생성합니다.
 8. JD/문항이 입력되면 경험 chunk를 검색하고 experience 단위로 묶어 추천 후보를 구성합니다.
-9. 추천 경험, 원문 evidence, 보완 답변을 바탕으로 자기소개서 초안을 생성합니다.
+9. 추천 후보에는 문항별 top-k 경험, 추천/보류/비추천 판단, 추천 이유, 추천하지 않는 이유 또는 주의점, 부족한 정보를 포함합니다.
+10. 사용자가 선택한 경험을 기준으로 보완 질문을 생성하고 답변을 반영합니다.
+11. 사용자가 선택한 경험, 원문 evidence, 보완 답변을 바탕으로 자기소개서 초안을 생성합니다.
 
 ### 테이블 설명
 
@@ -188,6 +192,7 @@ RAG 검색의 핵심 테이블입니다. 검색 대상 텍스트 chunk와 embedd
 | `used_experience_ids` | 초안에 사용된 경험 ID 목록 |
 | `evidence` | 초안 생성에 사용된 원문 근거 |
 | `missing_information` | 추가 보완이 필요한 정보 |
+| `exports` | 문항별 txt, Markdown 등 export용 본문 |
 
 ### RAG 담당자 참고 사항
 
@@ -197,6 +202,7 @@ RAG 검색의 핵심 테이블입니다. 검색 대상 텍스트 chunk와 embedd
 - 원문 evidence가 필요하면 `experience_sources`를 통해 `source_documents.raw_text`, `source_documents.cleaned_text`, `source_excerpt`를 확인할 수 있습니다.
 - 보완 질문 답변 후에는 기존 chunk가 재생성되므로, 같은 `experience_id`의 chunk ID는 바뀔 수 있습니다.
 - 현재 migration에는 `pgvector` extension 생성과 `embedding` ivfflat index 생성 코드가 있지만, 모델 컬럼은 JSON으로 정의되어 있습니다. 실제 벡터 인덱스 기반 검색으로 전환하려면 `embedding` 컬럼 타입을 pgvector `Vector(dim)` 형태로 맞추는 작업이 필요합니다.
+- 자기소개서 초안 생성 시에는 시스템 추천 결과가 아니라 사용자가 선택한 경험 ID 목록을 기준으로 해야 합니다.
 - 자기소개서 초안 생성 시에도 원문에 없는 사실을 만들지 않도록 `experience_sources.source_excerpt`와 보완 답변을 함께 참조해야 합니다.
 
 ## 실행
