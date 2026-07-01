@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import documents, experiences, health, questions, retrieval
+from app.api.routes import documents, experiences, health, notion, questions, retrieval
 from app.core.errors import AppError, app_error_handler, unhandled_error_handler
 
 
@@ -25,6 +25,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(documents.router, prefix="/api", tags=["documents"])
+    app.include_router(notion.router, prefix="/api", tags=["notion"])
     app.include_router(experiences.router, prefix="/api", tags=["experiences"])
     app.include_router(questions.router, prefix="/api", tags=["questions"])
     app.include_router(retrieval.router, prefix="/api", tags=["retrieval"])

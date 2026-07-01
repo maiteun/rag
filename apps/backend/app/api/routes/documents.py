@@ -1,4 +1,6 @@
-from fastapi import APIRouter
+import json
+
+from fastapi import APIRouter, File, Form, UploadFile
 
 from app.api.deps import DbSession, ERROR_RESPONSES
 from app.core.errors import AppError
@@ -6,6 +8,7 @@ from app.repositories.source_document_repository import SourceDocumentRepository
 from app.schemas.document import (
     DocumentProcessingResultResponse,
     DocumentProcessResponse,
+    PdfDocumentCreateResponse,
     TextDocumentCreateRequest,
     TextDocumentCreateResponse,
 )
@@ -24,6 +27,45 @@ router = APIRouter()
 def create_text_document(request: TextDocumentCreateRequest, db: DbSession) -> TextDocumentCreateResponse:
     document = DocumentService(db).create_text_document(request)
     return TextDocumentCreateResponse(document_id=document.id, status=document.status)
+
+
+@router.post(
+    "/documents/pdf",
+    response_model=PdfDocumentCreateResponse,
+    responses=ERROR_RESPONSES,
+    summary="Upload a PDF source document and optionally process it into experiences",
+)
+async def create_pdf_document(
+    db: DbSession,
+    user_id: str = Form(...),
+    file: UploadFile = File(...),
+    title: str | None = Form(default=None),
+    process_document: bool = Form(default=True),
+    metadata: str | None = Form(default=None),
+) -> PdfDocumentCreateResponse:
+    if file.content_type not in {None, "application/pdf"}:
+        raise AppError(400, "invalid_file_type", "Only PDF files are supported.")
+    parsed_metadata = _parse_metadata(metadata)
+    content = await file.read()
+    document = DocumentService(db).create_pdf_document(
+        user_id=user_id,
+        filename=file.filename,
+        title=title,
+        content=content,
+        metadata=parsed_metadata,
+    )
+    if not process_document:
+        return PdfDocumentCreateResponse(document_id=document.id, status=document.status)
+
+    status, experience_count, question_count = DocumentProcessingService(db).process(document.id)
+    experiences = DocumentProcessingService(db).summaries_for_document(document.id)
+    return PdfDocumentCreateResponse(
+        document_id=document.id,
+        status=status,
+        experience_count=experience_count,
+        question_count=question_count,
+        experiences=experiences,
+    )
 
 
 @router.post(
@@ -55,3 +97,14 @@ def get_processing_result(document_id: str, db: DbSession) -> DocumentProcessing
     summaries = DocumentProcessingService(db).summaries_for_document(document_id)
     return DocumentProcessingResultResponse(document_id=document.id, status=document.status, experiences=summaries)
 
+
+def _parse_metadata(metadata: str | None) -> dict:
+    if not metadata:
+        return {}
+    try:
+        parsed = json.loads(metadata)
+    except json.JSONDecodeError as exc:
+        raise AppError(400, "invalid_metadata", "metadata must be a JSON object string.") from exc
+    if not isinstance(parsed, dict):
+        raise AppError(400, "invalid_metadata", "metadata must be a JSON object string.")
+    return parsed

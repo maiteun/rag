@@ -11,6 +11,7 @@ VALID_SOURCE_TYPES = {
     "memo",
     "markdown",
     "notion",
+    "pdf",
 }
 
 
@@ -27,6 +28,14 @@ class TextDocumentCreateResponse(BaseModel):
     status: str
 
 
+class PdfDocumentCreateResponse(BaseModel):
+    document_id: str
+    status: str
+    experience_count: int = 0
+    question_count: int = 0
+    experiences: list[ExperienceProcessingSummary] = Field(default_factory=list)
+
+
 class DocumentProcessResponse(BaseModel):
     document_id: str
     status: str
@@ -38,4 +47,3 @@ class DocumentProcessingResultResponse(BaseModel):
     document_id: str
     status: str
     experiences: list[ExperienceProcessingSummary]
-

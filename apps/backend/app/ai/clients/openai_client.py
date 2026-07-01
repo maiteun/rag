@@ -20,6 +20,7 @@ class OpenAIExperienceLLMClient(ExperienceLLMClient):
                     "system",
                     "You convert a user's career records into a RAG-ready experience vault. "
                     "Extract resume-ready experiences without inventing facts. "
+                    "Return an empty experiences array when the document has no meaningful career experience. "
                     "Use null for unclear fields, include evidence excerpts, and include missing_fields questions.",
                 ),
                 (

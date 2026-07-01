@@ -7,6 +7,7 @@ from app.models.source_document import SourceDocument
 from app.models.user import User
 from app.repositories.source_document_repository import SourceDocumentRepository
 from app.schemas.document import TextDocumentCreateRequest, VALID_SOURCE_TYPES
+from app.services.pdf_text_extraction_service import PdfTextExtractionService
 
 
 class DocumentService:
@@ -40,3 +41,33 @@ class DocumentService:
         self.db.refresh(document)
         return document
 
+    def create_pdf_document(
+        self,
+        user_id: str,
+        filename: str | None,
+        content: bytes,
+        title: str | None = None,
+        metadata: dict | None = None,
+        extractor: PdfTextExtractionService | None = None,
+    ) -> SourceDocument:
+        text = (extractor or PdfTextExtractionService()).extract(content)
+        user = self.db.get(User, user_id)
+        if user is None:
+            user = User(id=user_id)
+            self.db.add(user)
+            self.db.flush()
+
+        document = SourceDocument(
+            id=str(uuid4()),
+            user_id=user_id,
+            source_type="pdf",
+            title=title or filename,
+            original_filename=filename,
+            raw_text=text,
+            status="uploaded",
+            doc_metadata=metadata or {},
+        )
+        self.documents.create(document)
+        self.db.commit()
+        self.db.refresh(document)
+        return document

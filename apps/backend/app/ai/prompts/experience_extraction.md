@@ -4,6 +4,7 @@ Extract cover-letter-ready experiences from the document.
 
 Rules:
 - One experience should represent one project, activity, internship, class, research, competition, volunteer activity, or meaningful event.
+- If the document does not contain any meaningful career experience, return an empty experiences array.
 - Do not invent facts that are not in the source document.
 - Use null for unclear fields.
 - Include source evidence excerpts.

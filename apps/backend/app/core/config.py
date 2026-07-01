@@ -17,9 +17,10 @@ class Settings(BaseSettings):
     embedding_model: str = Field(default="text-embedding-3-small", alias="EMBEDDING_MODEL")
     embedding_dimension: int = Field(default=1536, alias="EMBEDDING_DIMENSION")
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
+    notion_api_token: str | None = Field(default=None, alias="NOTION_API_TOKEN")
+    notion_api_version: str = Field(default="2026-03-11", alias="NOTION_API_VERSION")
 
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

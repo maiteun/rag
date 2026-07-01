@@ -44,6 +44,33 @@ paths:
           description: Validation error
         '500':
           description: Internal server error
+  /api/documents/pdf:
+    post:
+      tags:
+      - documents
+      summary: Upload a PDF source document and optionally process it into experiences
+      operationId: create_pdf_document_api_documents_pdf_post
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_create_pdf_document_api_documents_pdf_post'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PdfDocumentCreateResponse'
+        '400':
+          description: Bad request
+        '404':
+          description: Not found
+        '422':
+          description: Validation error
+        '500':
+          description: Internal server error
   /api/documents/{document_id}/process:
     post:
       tags:
@@ -92,6 +119,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DocumentProcessingResultResponse'
+        '400':
+          description: Bad request
+        '404':
+          description: Not found
+        '422':
+          description: Validation error
+        '500':
+          description: Internal server error
+  /api/notion/workspaces/import:
+    post:
+      tags:
+      - notion
+      summary: Import accessible Notion workspace pages into experiences
+      operationId: import_notion_workspace_api_notion_workspaces_import_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotionWorkspaceImportRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotionWorkspaceImportResponse'
         '400':
           description: Bad request
         '404':
@@ -219,6 +273,34 @@ paths:
           description: Internal server error
 components:
   schemas:
+    Body_create_pdf_document_api_documents_pdf_post:
+      properties:
+        user_id:
+          type: string
+          title: User Id
+        file:
+          type: string
+          format: binary
+          title: File
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        process_document:
+          type: boolean
+          title: Process Document
+          default: true
+        metadata:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Metadata
+      type: object
+      required:
+      - user_id
+      - file
+      title: Body_create_pdf_document_api_documents_pdf_post
     DocumentProcessResponse:
       properties:
         document_id:
@@ -341,11 +423,9 @@ components:
           title: Keywords
         completeness_score:
           type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           title: Completeness Score
         confidence_score:
           type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           title: Confidence Score
         sources:
           items:
@@ -394,7 +474,6 @@ components:
           title: Competencies
         completeness_score:
           type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           title: Completeness Score
         status:
           type: string
@@ -517,6 +596,136 @@ components:
       required:
       - message
       title: MessageResponse
+    NotionImportedDocumentSummary:
+      properties:
+        document_id:
+          type: string
+          title: Document Id
+        notion_page_id:
+          type: string
+          title: Notion Page Id
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+        status:
+          type: string
+          title: Status
+        experience_count:
+          type: integer
+          title: Experience Count
+          default: 0
+        question_count:
+          type: integer
+          title: Question Count
+          default: 0
+        experiences:
+          items:
+            $ref: '#/components/schemas/ExperienceProcessingSummary'
+          type: array
+          title: Experiences
+      type: object
+      required:
+      - document_id
+      - notion_page_id
+      - status
+      title: NotionImportedDocumentSummary
+    NotionWorkspaceImportRequest:
+      properties:
+        user_id:
+          type: string
+          title: User Id
+        notion_token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notion Token
+          description: Optional Notion integration token.
+        root_page_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Root Page Id
+          description: Optional page id to import. If omitted, all accessible pages
+            are discovered through search.
+        workspace_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workspace Name
+        process_documents:
+          type: boolean
+          title: Process Documents
+          default: true
+        max_pages:
+          type: integer
+          maximum: 500.0
+          minimum: 1.0
+          title: Max Pages
+          default: 100
+      type: object
+      required:
+      - user_id
+      title: NotionWorkspaceImportRequest
+    NotionWorkspaceImportResponse:
+      properties:
+        imported_page_count:
+          type: integer
+          title: Imported Page Count
+        processed_document_count:
+          type: integer
+          title: Processed Document Count
+        experience_count:
+          type: integer
+          title: Experience Count
+        question_count:
+          type: integer
+          title: Question Count
+        documents:
+          items:
+            $ref: '#/components/schemas/NotionImportedDocumentSummary'
+          type: array
+          title: Documents
+      type: object
+      required:
+      - imported_page_count
+      - processed_document_count
+      - experience_count
+      - question_count
+      - documents
+      title: NotionWorkspaceImportResponse
+    PdfDocumentCreateResponse:
+      properties:
+        document_id:
+          type: string
+          title: Document Id
+        status:
+          type: string
+          title: Status
+        experience_count:
+          type: integer
+          title: Experience Count
+          default: 0
+        question_count:
+          type: integer
+          title: Question Count
+          default: 0
+        experiences:
+          items:
+            $ref: '#/components/schemas/ExperienceProcessingSummary'
+          type: array
+          title: Experiences
+      type: object
+      required:
+      - document_id
+      - status
+      title: PdfDocumentCreateResponse
     QuestionAnswerRequest:
       properties:
         answer:
@@ -601,7 +810,6 @@ components:
           type: number
           title: Similarity
         metadata:
-          additionalProperties: true
           type: object
           title: Metadata
       type: object
@@ -661,7 +869,6 @@ components:
           minLength: 1
           title: Text
         metadata:
-          additionalProperties: true
           type: object
           title: Metadata
       type: object
