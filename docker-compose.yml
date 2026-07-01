@@ -9,4 +9,26 @@ services:
       - "5432:5432"
     volumes:
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d experience_vault"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
+  backend:
+    build:
+      context: ./apps/backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://user:password@postgres:5432/experience_vault
+      LLM_PROVIDER: fake
+      LLM_MODEL: gpt-4.1-mini
+      EMBEDDING_PROVIDER: fake
+      EMBEDDING_MODEL: text-embedding-3-small
+      EMBEDDING_DIMENSION: 1536
+      OPENAI_API_KEY: ""
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"

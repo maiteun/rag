@@ -110,7 +110,6 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("answered_at", sa.DateTime(timezone=True)),
     )
-    op.create_index("experience_chunks_embedding_idx", "experience_chunks", ["embedding"], postgresql_using="ivfflat")
 
 
 def downgrade() -> None:

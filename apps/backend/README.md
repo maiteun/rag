@@ -1,6 +1,6 @@
 # Backend
 
-KHU:DArchive backend는 사용자의 문서나 텍스트 기록을 받아 경험 단위로 정리하고, RAG에서 검색할 수 있는 chunk와 embedding을 저장하는 FastAPI 애플리케이션입니다.
+KHU:DArchive backend는 사용자의 문서나 텍스트 기록을 받아 경험 단위로 정리하고, RAG에서 검색할 수 있는 chunk와 embedding을 저장하며, JD/문항 기반 경험 추천과 자기소개서 초안 생성을 지원하는 FastAPI 애플리케이션입니다.
 
 ## 구현된 기능
 
@@ -18,6 +18,16 @@ KHU:DArchive backend는 사용자의 문서나 텍스트 기록을 받아 경험
 - 사용자별 retrieval search
 - OpenAPI export
 
+## MVP 추가 범위
+
+현재 MVP 범위는 경험 추천에서 끝나지 않고 자기소개서 초안 생성까지 포함합니다. 따라서 backend는 다음 흐름을 지원해야 합니다.
+
+1. 지원 직무, JD, 자기소개서 문항 분석
+2. 경험 Vault 검색 및 추천 경험 선정
+3. 부족한 정보 보완 질문 생성과 답변 반영
+4. 추천 경험, 원문 evidence, 보완 답변 기반 자기소개서 초안 생성
+5. 초안에 사용된 경험과 evidence 반환
+
 ## 주요 API
 
 - `GET /health`
@@ -28,6 +38,11 @@ KHU:DArchive backend는 사용자의 문서나 텍스트 기록을 받아 경험
 - `GET /api/experiences/{experience_id}`
 - `POST /api/experience-questions/{question_id}/answer`
 - `POST /api/retrieval/search`
+
+## MVP 예정 API
+
+- `POST /api/recommendations/experiences`
+- `POST /api/cover-letters/drafts`
 
 ## DB 구성
 
@@ -42,6 +57,8 @@ KHU:DArchive backend는 사용자의 문서나 텍스트 기록을 받아 경험
 5. 경험의 summary/situation/action/result/learned를 검색용 chunk로 나누어 `experience_chunks`에 저장합니다.
 6. 각 chunk의 embedding은 `experience_chunks.embedding`에 저장합니다.
 7. 보완 질문 답변이 들어오면 해당 경험의 필드를 업데이트하고, 기존 chunk를 삭제한 뒤 chunk와 embedding을 다시 생성합니다.
+8. JD/문항이 입력되면 경험 chunk를 검색하고 experience 단위로 묶어 추천 후보를 구성합니다.
+9. 추천 경험, 원문 evidence, 보완 답변을 바탕으로 자기소개서 초안을 생성합니다.
 
 ### 테이블 설명
 
@@ -161,6 +178,17 @@ RAG 검색의 핵심 테이블입니다. 검색 대상 텍스트 chunk와 embedd
 | `answer` | 사용자 답변 |
 | `created_at`, `answered_at` | 생성/답변 시각 |
 
+#### 자기소개서 초안 생성 데이터
+
+초안 생성 결과를 영속화할지 여부는 아직 확정되지 않았습니다. MVP에서는 최소한 API 응답으로 다음 데이터를 반환해야 합니다.
+
+| 필드 | 설명 |
+| --- | --- |
+| `draft` | 생성된 자기소개서 초안 본문 |
+| `used_experience_ids` | 초안에 사용된 경험 ID 목록 |
+| `evidence` | 초안 생성에 사용된 원문 근거 |
+| `missing_information` | 추가 보완이 필요한 정보 |
+
 ### RAG 담당자 참고 사항
 
 - 검색에 바로 사용할 데이터는 `experience_chunks.chunk_text`와 `experience_chunks.embedding`입니다.
@@ -169,6 +197,7 @@ RAG 검색의 핵심 테이블입니다. 검색 대상 텍스트 chunk와 embedd
 - 원문 evidence가 필요하면 `experience_sources`를 통해 `source_documents.raw_text`, `source_documents.cleaned_text`, `source_excerpt`를 확인할 수 있습니다.
 - 보완 질문 답변 후에는 기존 chunk가 재생성되므로, 같은 `experience_id`의 chunk ID는 바뀔 수 있습니다.
 - 현재 migration에는 `pgvector` extension 생성과 `embedding` ivfflat index 생성 코드가 있지만, 모델 컬럼은 JSON으로 정의되어 있습니다. 실제 벡터 인덱스 기반 검색으로 전환하려면 `embedding` 컬럼 타입을 pgvector `Vector(dim)` 형태로 맞추는 작업이 필요합니다.
+- 자기소개서 초안 생성 시에도 원문에 없는 사실을 만들지 않도록 `experience_sources.source_excerpt`와 보완 답변을 함께 참조해야 합니다.
 
 ## 실행
 
