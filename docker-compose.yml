@@ -8,6 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
+      - ./infra/postgres/data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d experience_vault"]

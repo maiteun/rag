@@ -6,3 +6,5 @@ __pycache__/
 .mypy_cache/
 .env
 AGENTS.md
+tmp/
+infra/postgres/data/*
