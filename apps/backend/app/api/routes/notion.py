@@ -15,7 +15,8 @@ router = APIRouter()
     response_model_exclude_none=True,
     status_code=status.HTTP_201_CREATED,
     responses=ERROR_RESPONSES,
-    summary="Import accessible Notion workspace pages into experiences",
+    summary="Notion 페이지 가져오기",
+    description="integration token으로 접근 가능한 Notion 페이지를 문서로 저장하고, 기본값으로 경험 추출까지 실행합니다.",
 )
 def import_notion_workspace(
     request: NotionWorkspaceImportRequest,
