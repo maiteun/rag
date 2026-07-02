@@ -10,6 +10,7 @@ from app.models import (  # noqa: E402,F401
     experience_chunk,
     experience_question,
     experience_source,
+    match_request,
     source_document,
     user,
 )

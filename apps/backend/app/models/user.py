@@ -14,4 +14,5 @@ class User(TimestampMixin, Base):
 
     source_documents = relationship("SourceDocument", back_populates="user")
     experiences = relationship("Experience", back_populates="user")
+    match_requests = relationship("MatchRequest", back_populates="user")
 
