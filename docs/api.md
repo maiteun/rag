@@ -13,12 +13,49 @@ OpenAPI 산출물:
 | --- | --- | --- |
 | GET | `/health` | 서버 상태 확인 |
 | POST | `/api/documents/text` | 텍스트 기록 입력 |
+| POST | `/api/documents/pdf` | PDF 기록 업로드 및 처리 |
 | POST | `/api/documents/{document_id}/process` | 입력 문서 처리 |
 | GET | `/api/documents/{document_id}/processing-result` | 문서 처리 결과 조회 |
 | GET | `/api/experiences?user_id={user_id}` | 사용자 경험 목록 조회 |
 | GET | `/api/experiences/{experience_id}` | 경험 상세 조회 |
 | POST | `/api/experience-questions/{question_id}/answer` | 보완 질문 답변 |
 | POST | `/api/retrieval/search` | 경험 검색 |
+| POST | `/api/notion/workspaces/import` | Notion 워크스페이스 페이지 가져오기 |
+
+## 공통 응답 구조
+
+`/health`를 제외한 모든 API는 공통 형식으로 응답합니다. 값이 없는 필드는 응답에서 제외됩니다.
+
+성공 응답 (조회는 200, 생성은 201):
+
+```json
+{
+  "success": true,
+  "status": 201,
+  "message": "리소스가 생성되었습니다.",
+  "data": {
+    "document_id": "...",
+    "status": "processed"
+  }
+}
+```
+
+실패 응답 (에러 코드는 `도메인_상태코드_카운팅` 형식):
+
+```json
+{
+  "success": false,
+  "status": 404,
+  "message": "존재하지 않는 문서입니다.",
+  "code": "DOC_404_001",
+  "meta": {
+    "path": "/api/documents/xxx/processing-result",
+    "timestamp": 1783000000000
+  }
+}
+```
+
+요청 본문 검증 실패는 400과 `COM_400_002`로 응답합니다. 에러 코드 전체 목록은 `apps/backend/app/core/codes.py`를 참고하세요.
 
 ## MVP 예정 API
 
