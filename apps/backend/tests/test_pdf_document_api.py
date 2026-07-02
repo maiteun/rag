@@ -27,13 +27,16 @@ def test_pdf_upload_processes_through_experience_pipeline(db_session, monkeypatc
         files={"file": ("portfolio.pdf", b"%PDF fake content", "application/pdf")},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 201
     body = response.json()
-    assert body["status"] == "processed"
-    assert body["experience_count"] >= 1
-    assert body["experiences"]
+    assert body["success"] is True
+    assert body["status"] == 201
+    data = body["data"]
+    assert data["status"] == "processed"
+    assert data["experience_count"] >= 1
+    assert data["experiences"]
 
-    document = db_session.get(SourceDocument, body["document_id"])
+    document = db_session.get(SourceDocument, data["document_id"])
     assert document is not None
     assert document.source_type == "pdf"
     assert document.original_filename == "portfolio.pdf"
@@ -60,8 +63,10 @@ def test_pdf_upload_can_store_without_processing(db_session, monkeypatch):
         files={"file": ("memo.pdf", b"%PDF fake content", "application/pdf")},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 201
     body = response.json()
-    assert body["status"] == "uploaded"
-    assert body["experience_count"] == 0
-    assert body["experiences"] == []
+    assert body["success"] is True
+    data = body["data"]
+    assert data["status"] == "uploaded"
+    assert data["experience_count"] == 0
+    assert data["experiences"] == []

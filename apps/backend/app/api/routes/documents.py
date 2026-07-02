@@ -1,10 +1,12 @@
 import json
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile, status
 
 from app.api.deps import DbSession, ERROR_RESPONSES
-from app.core.errors import AppError
+from app.core.codes import ErrorCode, SuccessCode
+from app.core.errors import BusinessError
 from app.repositories.source_document_repository import SourceDocumentRepository
+from app.schemas.common import ApiResponse
 from app.schemas.document import (
     DocumentProcessingResultResponse,
     DocumentProcessResponse,
@@ -20,18 +22,25 @@ router = APIRouter()
 
 @router.post(
     "/documents/text",
-    response_model=TextDocumentCreateResponse,
+    response_model=ApiResponse[TextDocumentCreateResponse, None],
+    response_model_exclude_none=True,
+    status_code=status.HTTP_201_CREATED,
     responses=ERROR_RESPONSES,
     summary="Create a text source document",
 )
-def create_text_document(request: TextDocumentCreateRequest, db: DbSession) -> TextDocumentCreateResponse:
+def create_text_document(
+    request: TextDocumentCreateRequest, db: DbSession
+) -> ApiResponse[TextDocumentCreateResponse, None]:
     document = DocumentService(db).create_text_document(request)
-    return TextDocumentCreateResponse(document_id=document.id, status=document.status)
+    data = TextDocumentCreateResponse(document_id=document.id, status=document.status)
+    return ApiResponse.created(SuccessCode.CREATED, data)
 
 
 @router.post(
     "/documents/pdf",
-    response_model=PdfDocumentCreateResponse,
+    response_model=ApiResponse[PdfDocumentCreateResponse, None],
+    response_model_exclude_none=True,
+    status_code=status.HTTP_201_CREATED,
     responses=ERROR_RESPONSES,
     summary="Upload a PDF source document and optionally process it into experiences",
 )
@@ -42,9 +51,9 @@ async def create_pdf_document(
     title: str | None = Form(default=None),
     process_document: bool = Form(default=True),
     metadata: str | None = Form(default=None),
-) -> PdfDocumentCreateResponse:
+) -> ApiResponse[PdfDocumentCreateResponse, None]:
     if file.content_type not in {None, "application/pdf"}:
-        raise AppError(400, "invalid_file_type", "Only PDF files are supported.")
+        raise BusinessError(ErrorCode.INVALID_FILE_TYPE)
     parsed_metadata = _parse_metadata(metadata)
     content = await file.read()
     document = DocumentService(db).create_pdf_document(
@@ -55,47 +64,53 @@ async def create_pdf_document(
         metadata=parsed_metadata,
     )
     if not process_document:
-        return PdfDocumentCreateResponse(document_id=document.id, status=document.status)
+        data = PdfDocumentCreateResponse(document_id=document.id, status=document.status)
+        return ApiResponse.created(SuccessCode.CREATED, data)
 
-    status, experience_count, question_count = DocumentProcessingService(db).process(document.id)
+    doc_status, experience_count, question_count = DocumentProcessingService(db).process(document.id)
     experiences = DocumentProcessingService(db).summaries_for_document(document.id)
-    return PdfDocumentCreateResponse(
+    data = PdfDocumentCreateResponse(
         document_id=document.id,
-        status=status,
+        status=doc_status,
         experience_count=experience_count,
         question_count=question_count,
         experiences=experiences,
     )
+    return ApiResponse.created(SuccessCode.CREATED, data)
 
 
 @router.post(
     "/documents/{document_id}/process",
-    response_model=DocumentProcessResponse,
+    response_model=ApiResponse[DocumentProcessResponse, None],
+    response_model_exclude_none=True,
     responses=ERROR_RESPONSES,
     summary="Process a source document into experiences",
 )
-def process_document(document_id: str, db: DbSession) -> DocumentProcessResponse:
-    status, experience_count, question_count = DocumentProcessingService(db).process(document_id)
-    return DocumentProcessResponse(
+def process_document(document_id: str, db: DbSession) -> ApiResponse[DocumentProcessResponse, None]:
+    doc_status, experience_count, question_count = DocumentProcessingService(db).process(document_id)
+    data = DocumentProcessResponse(
         document_id=document_id,
-        status=status,
+        status=doc_status,
         experience_count=experience_count,
         question_count=question_count,
     )
+    return ApiResponse.ok(SuccessCode.OK, data)
 
 
 @router.get(
     "/documents/{document_id}/processing-result",
-    response_model=DocumentProcessingResultResponse,
+    response_model=ApiResponse[DocumentProcessingResultResponse, None],
+    response_model_exclude_none=True,
     responses=ERROR_RESPONSES,
     summary="Read document processing results",
 )
-def get_processing_result(document_id: str, db: DbSession) -> DocumentProcessingResultResponse:
+def get_processing_result(document_id: str, db: DbSession) -> ApiResponse[DocumentProcessingResultResponse, None]:
     document = SourceDocumentRepository(db).get(document_id)
     if document is None:
-        raise AppError(404, "document_not_found", "Document not found.")
+        raise BusinessError(ErrorCode.DOCUMENT_NOT_FOUND)
     summaries = DocumentProcessingService(db).summaries_for_document(document_id)
-    return DocumentProcessingResultResponse(document_id=document.id, status=document.status, experiences=summaries)
+    data = DocumentProcessingResultResponse(document_id=document.id, status=document.status, experiences=summaries)
+    return ApiResponse.ok(SuccessCode.OK, data)
 
 
 def _parse_metadata(metadata: str | None) -> dict:
@@ -104,7 +119,7 @@ def _parse_metadata(metadata: str | None) -> dict:
     try:
         parsed = json.loads(metadata)
     except json.JSONDecodeError as exc:
-        raise AppError(400, "invalid_metadata", "metadata must be a JSON object string.") from exc
+        raise BusinessError(ErrorCode.INVALID_METADATA) from exc
     if not isinstance(parsed, dict):
-        raise AppError(400, "invalid_metadata", "metadata must be a JSON object string.")
+        raise BusinessError(ErrorCode.INVALID_METADATA)
     return parsed

@@ -1,8 +1,10 @@
 from fastapi import APIRouter
 
 from app.api.deps import DbSession, ERROR_RESPONSES
-from app.core.errors import AppError
+from app.core.codes import ErrorCode, SuccessCode
+from app.core.errors import BusinessError
 from app.repositories.experience_repository import ExperienceRepository
+from app.schemas.common import ApiResponse
 from app.schemas.experience import (
     ExperienceDetailResponse,
     ExperienceListItem,
@@ -16,26 +18,29 @@ router = APIRouter()
 
 @router.get(
     "/experiences",
-    response_model=ExperienceListResponse,
+    response_model=ApiResponse[ExperienceListResponse, None],
+    response_model_exclude_none=True,
     responses=ERROR_RESPONSES,
     summary="List experiences for a user",
 )
-def list_experiences(user_id: str, db: DbSession) -> ExperienceListResponse:
+def list_experiences(user_id: str, db: DbSession) -> ApiResponse[ExperienceListResponse, None]:
     experiences = ExperienceRepository(db).list_by_user(user_id)
-    return ExperienceListResponse(experiences=[ExperienceListItem.model_validate(exp) for exp in experiences])
+    data = ExperienceListResponse(experiences=[ExperienceListItem.model_validate(exp) for exp in experiences])
+    return ApiResponse.ok(SuccessCode.OK, data)
 
 
 @router.get(
     "/experiences/{experience_id}",
-    response_model=ExperienceDetailResponse,
+    response_model=ApiResponse[ExperienceDetailResponse, None],
+    response_model_exclude_none=True,
     responses=ERROR_RESPONSES,
     summary="Read an experience with sources and questions",
 )
-def get_experience(experience_id: str, db: DbSession) -> ExperienceDetailResponse:
+def get_experience(experience_id: str, db: DbSession) -> ApiResponse[ExperienceDetailResponse, None]:
     experience = ExperienceRepository(db).get(experience_id)
     if experience is None:
-        raise AppError(404, "experience_not_found", "Experience not found.")
-    return ExperienceDetailResponse(
+        raise BusinessError(ErrorCode.EXPERIENCE_NOT_FOUND)
+    data = ExperienceDetailResponse(
         id=experience.id,
         title=experience.title,
         summary=experience.summary,
@@ -74,4 +79,5 @@ def get_experience(experience_id: str, db: DbSession) -> ExperienceDetailRespons
             for question in experience.questions
         ],
     )
+    return ApiResponse.ok(SuccessCode.OK, data)
 
