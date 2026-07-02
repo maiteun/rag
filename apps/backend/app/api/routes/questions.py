@@ -14,7 +14,8 @@ router = APIRouter()
     response_model=ApiResponse[QuestionAnswerResponse, None],
     response_model_exclude_none=True,
     responses=ERROR_RESPONSES,
-    summary="Answer a follow-up question and update the experience",
+    summary="보완 질문 답변",
+    description="보완 질문에 답하면 답변 내용이 경험 카드에 반영되고 완성도 점수가 다시 계산됩니다.",
 )
 def answer_question(
     question_id: str, request: QuestionAnswerRequest, db: DbSession

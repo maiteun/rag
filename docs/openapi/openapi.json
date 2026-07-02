@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "KHU:DArchive API",
-    "description": "APIs for storing past career records as a RAG-ready archive.",
+    "description": "커리어 기록을 경험 단위로 구조화해 저장하고, JD/문항에 맞는 경험을 찾아주는 KHU:DArchive 백엔드 API입니다.",
     "version": "0.1.0"
   },
   "paths": {
@@ -11,7 +11,7 @@
         "tags": [
           "health"
         ],
-        "summary": "Health",
+        "summary": "서버 상태 확인",
         "operationId": "health_health_get",
         "responses": {
           "200": {
@@ -32,7 +32,8 @@
         "tags": [
           "documents"
         ],
-        "summary": "Create a text source document",
+        "summary": "텍스트 기록 등록",
+        "description": "자기소개서, 이력서, 메모 같은 텍스트 기록을 저장합니다. 저장 후 처리 API를 호출하면 경험이 추출됩니다.",
         "operationId": "create_text_document_api_documents_text_post",
         "requestBody": {
           "content": {
@@ -113,7 +114,8 @@
         "tags": [
           "documents"
         ],
-        "summary": "Upload a PDF source document and optionally process it into experiences",
+        "summary": "PDF 기록 업로드",
+        "description": "PDF에서 텍스트를 뽑아 기록으로 저장합니다. process_document가 true(기본값)면 경험 추출까지 한 번에 실행합니다.",
         "operationId": "create_pdf_document_api_documents_pdf_post",
         "requestBody": {
           "content": {
@@ -194,7 +196,8 @@
         "tags": [
           "documents"
         ],
-        "summary": "Process a source document into experiences",
+        "summary": "문서 처리 (경험 추출)",
+        "description": "저장된 문서에서 경험 카드를 추출하고 청크와 임베딩, 보완 질문을 만듭니다.",
         "operationId": "process_document_api_documents__document_id__process_post",
         "parameters": [
           {
@@ -276,7 +279,8 @@
         "tags": [
           "documents"
         ],
-        "summary": "Read document processing results",
+        "summary": "문서 처리 결과 조회",
+        "description": "문서에서 추출된 경험 요약과 보완 질문 목록을 돌려줍니다.",
         "operationId": "get_processing_result_api_documents__document_id__processing_result_get",
         "parameters": [
           {
@@ -358,7 +362,8 @@
         "tags": [
           "notion"
         ],
-        "summary": "Import accessible Notion workspace pages into experiences",
+        "summary": "Notion 페이지 가져오기",
+        "description": "integration token으로 접근 가능한 Notion 페이지를 문서로 저장하고, 기본값으로 경험 추출까지 실행합니다.",
         "operationId": "import_notion_workspace_api_notion_workspaces_import_post",
         "requestBody": {
           "content": {
@@ -439,7 +444,8 @@
         "tags": [
           "experiences"
         ],
-        "summary": "List experiences for a user",
+        "summary": "경험 목록 조회",
+        "description": "사용자의 경험 카드를 최신순으로 돌려줍니다.",
         "operationId": "list_experiences_api_experiences_get",
         "parameters": [
           {
@@ -521,7 +527,8 @@
         "tags": [
           "experiences"
         ],
-        "summary": "Read an experience with sources and questions",
+        "summary": "경험 상세 조회",
+        "description": "경험 카드의 STAR 구조, 출처 문서, 보완 질문까지 함께 돌려줍니다.",
         "operationId": "get_experience_api_experiences__experience_id__get",
         "parameters": [
           {
@@ -603,7 +610,8 @@
         "tags": [
           "questions"
         ],
-        "summary": "Answer a follow-up question and update the experience",
+        "summary": "보완 질문 답변",
+        "description": "보완 질문에 답하면 답변 내용이 경험 카드에 반영되고 완성도 점수가 다시 계산됩니다.",
         "operationId": "answer_question_api_experience_questions__question_id__answer_post",
         "parameters": [
           {
@@ -695,7 +703,8 @@
         "tags": [
           "retrieval"
         ],
-        "summary": "Search RAG chunks for a user",
+        "summary": "경험 청크 검색",
+        "description": "질의를 임베딩해서 사용자의 경험 청크를 유사도 순으로 돌려줍니다.",
         "operationId": "search_retrieval_api_retrieval_search_post",
         "requestBody": {
           "content": {
@@ -714,6 +723,337 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponse_RetrievalSearchResponse_NoneType_"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Upstream service error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/matches": {
+      "post": {
+        "tags": [
+          "matches"
+        ],
+        "summary": "문항-경험 매칭 요청 생성",
+        "description": "JD와 문항 목록으로 매칭 요청을 만들고 문항별 경험 추천을 실행합니다. 결과는 조회 API를 폴링해서 확인합니다.",
+        "operationId": "create_match_api_matches_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MatchCreateResponse_NoneType_"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Upstream service error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/matches/{match_id}": {
+      "get": {
+        "tags": [
+          "matches"
+        ],
+        "summary": "매칭 결과 조회 (폴링)",
+        "description": "매칭 상태와 문항별 추천 경험을 돌려줍니다. status가 completed가 되면 recommendations가 채워집니다.",
+        "operationId": "get_match_api_matches__match_id__get",
+        "parameters": [
+          {
+            "name": "match_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Match Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MatchDetailResponse_NoneType_"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Upstream service error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resumes": {
+      "get": {
+        "tags": [
+          "resumes"
+        ],
+        "summary": "과거 이력서 목록 조회",
+        "description": "source_type이 resume 또는 pdf인 문서를 이력서로 보고 최신순으로 돌려줍니다.",
+        "operationId": "list_resumes_api_resumes_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ResumeListResponse_NoneType_"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Upstream service error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_ErrorMeta_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resumes/{resume_id}": {
+      "get": {
+        "tags": [
+          "resumes"
+        ],
+        "summary": "과거 이력서 상세 조회",
+        "description": "이력서 원문 텍스트까지 포함해서 돌려줍니다.",
+        "operationId": "get_resume_api_resumes__resume_id__get",
+        "parameters": [
+          {
+            "name": "resume_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Resume Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ResumeDetailResponse_NoneType_"
                 }
               }
             }
@@ -966,6 +1306,102 @@
         ],
         "title": "ApiResponse[ExperienceListResponse, NoneType]"
       },
+      "ApiResponse_MatchCreateResponse_NoneType_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchCreateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "meta": {
+            "type": "null",
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "status",
+          "message"
+        ],
+        "title": "ApiResponse[MatchCreateResponse, NoneType]"
+      },
+      "ApiResponse_MatchDetailResponse_NoneType_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchDetailResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "meta": {
+            "type": "null",
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "status",
+          "message"
+        ],
+        "title": "ApiResponse[MatchDetailResponse, NoneType]"
+      },
       "ApiResponse_NoneType_ErrorMeta_": {
         "properties": {
           "success": {
@@ -1158,6 +1594,102 @@
         ],
         "title": "ApiResponse[QuestionAnswerResponse, NoneType]"
       },
+      "ApiResponse_ResumeDetailResponse_NoneType_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumeDetailResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "meta": {
+            "type": "null",
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "status",
+          "message"
+        ],
+        "title": "ApiResponse[ResumeDetailResponse, NoneType]"
+      },
+      "ApiResponse_ResumeListResponse_NoneType_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumeListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "meta": {
+            "type": "null",
+            "title": "Meta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "status",
+          "message"
+        ],
+        "title": "ApiResponse[ResumeListResponse, NoneType]"
+      },
       "ApiResponse_RetrievalSearchResponse_NoneType_": {
         "properties": {
           "success": {
@@ -1304,19 +1836,23 @@
         "properties": {
           "document_id": {
             "type": "string",
-            "title": "Document Id"
+            "title": "Document Id",
+            "description": "처리한 문서 ID"
           },
           "status": {
             "type": "string",
-            "title": "Status"
+            "title": "Status",
+            "description": "문서 상태 (processed, failed)"
           },
           "experience_count": {
             "type": "integer",
-            "title": "Experience Count"
+            "title": "Experience Count",
+            "description": "추출된 경험 수"
           },
           "question_count": {
             "type": "integer",
-            "title": "Question Count"
+            "title": "Question Count",
+            "description": "생성된 보완 질문 수"
           }
         },
         "type": "object",
@@ -1332,18 +1868,21 @@
         "properties": {
           "document_id": {
             "type": "string",
-            "title": "Document Id"
+            "title": "Document Id",
+            "description": "문서 ID"
           },
           "status": {
             "type": "string",
-            "title": "Status"
+            "title": "Status",
+            "description": "문서 상태"
           },
           "experiences": {
             "items": {
               "$ref": "#/components/schemas/ExperienceProcessingSummary"
             },
             "type": "array",
-            "title": "Experiences"
+            "title": "Experiences",
+            "description": "추출된 경험 요약 목록"
           }
         },
         "type": "object",
@@ -1798,6 +2337,189 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "MatchCreateRequest": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id",
+            "description": "사용자 ID (UUID). 이 사용자의 경험을 대상으로 추천합니다.",
+            "examples": [
+              "00000000-0000-0000-0000-000000000001"
+            ]
+          },
+          "job_description": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Job Description",
+            "description": "채용 공고(JD) 원문",
+            "examples": [
+              "FastAPI 기반 서비스 개발, PostgreSQL 성능 최적화 경험 우대"
+            ]
+          },
+          "questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Questions",
+            "description": "자기소개서 문항 목록. 입력한 순서가 유지됩니다.",
+            "examples": [
+              [
+                "문제 해결 경험을 서술하시오.",
+                "협업 경험을 서술하시오."
+              ]
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "job_description",
+          "questions"
+        ],
+        "title": "MatchCreateRequest"
+      },
+      "MatchCreateResponse": {
+        "properties": {
+          "match_id": {
+            "type": "string",
+            "title": "Match Id",
+            "description": "생성된 매칭 요청 ID. 이 ID로 결과를 폴링합니다."
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "매칭 상태 (pending, processing, completed, failed)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "match_id",
+          "status"
+        ],
+        "title": "MatchCreateResponse"
+      },
+      "MatchDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "매칭 요청 ID"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "매칭 상태. completed가 되면 recommendations가 채워집니다."
+          },
+          "job_description": {
+            "type": "string",
+            "title": "Job Description",
+            "description": "요청 당시 입력한 JD 원문"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/MatchQuestionResult"
+            },
+            "type": "array",
+            "title": "Questions",
+            "description": "문항별 추천 결과"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "요청 생성 시각"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "job_description",
+          "questions",
+          "created_at"
+        ],
+        "title": "MatchDetailResponse"
+      },
+      "MatchQuestionResult": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "문항 ID"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "문항 내용",
+            "examples": [
+              "문제 해결 경험을 서술하시오."
+            ]
+          },
+          "recommendations": {
+            "items": {
+              "$ref": "#/components/schemas/MatchRecommendation"
+            },
+            "type": "array",
+            "title": "Recommendations",
+            "description": "이 문항에 추천된 경험 목록. 순위 순으로 정렬됩니다."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "MatchQuestionResult"
+      },
+      "MatchRecommendation": {
+        "properties": {
+          "experience_id": {
+            "type": "string",
+            "title": "Experience Id",
+            "description": "추천된 경험 ID"
+          },
+          "rank": {
+            "type": "integer",
+            "title": "Rank",
+            "description": "추천 순위 (1부터 시작)",
+            "examples": [
+              1
+            ]
+          },
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "추천 점수 (0~1)",
+            "examples": [
+              0.87
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "이 경험을 추천한 이유",
+            "examples": [
+              "문제와 해결 과정이 명확함"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "experience_id",
+          "rank",
+          "score"
+        ],
+        "title": "MatchRecommendation"
+      },
       "MessageResponse": {
         "properties": {
           "message": {
@@ -1815,11 +2537,13 @@
         "properties": {
           "document_id": {
             "type": "string",
-            "title": "Document Id"
+            "title": "Document Id",
+            "description": "생성된 문서 ID"
           },
           "notion_page_id": {
             "type": "string",
-            "title": "Notion Page Id"
+            "title": "Notion Page Id",
+            "description": "원본 Notion 페이지 ID"
           },
           "title": {
             "anyOf": [
@@ -1830,7 +2554,8 @@
                 "type": "null"
               }
             ],
-            "title": "Title"
+            "title": "Title",
+            "description": "페이지 제목"
           },
           "url": {
             "anyOf": [
@@ -1841,20 +2566,24 @@
                 "type": "null"
               }
             ],
-            "title": "Url"
+            "title": "Url",
+            "description": "페이지 URL"
           },
           "status": {
             "type": "string",
-            "title": "Status"
+            "title": "Status",
+            "description": "문서 상태 (uploaded, processed, failed)"
           },
           "experience_count": {
             "type": "integer",
             "title": "Experience Count",
+            "description": "추출된 경험 수",
             "default": 0
           },
           "question_count": {
             "type": "integer",
             "title": "Question Count",
+            "description": "생성된 보완 질문 수",
             "default": 0
           },
           "experiences": {
@@ -1862,7 +2591,8 @@
               "$ref": "#/components/schemas/ExperienceProcessingSummary"
             },
             "type": "array",
-            "title": "Experiences"
+            "title": "Experiences",
+            "description": "추출된 경험 요약 목록"
           }
         },
         "type": "object",
@@ -1877,7 +2607,11 @@
         "properties": {
           "user_id": {
             "type": "string",
-            "title": "User Id"
+            "title": "User Id",
+            "description": "사용자 ID (UUID). 가져온 페이지가 이 사용자의 문서로 저장됩니다.",
+            "examples": [
+              "00000000-0000-0000-0000-000000000001"
+            ]
           },
           "notion_token": {
             "anyOf": [
@@ -1889,7 +2623,10 @@
               }
             ],
             "title": "Notion Token",
-            "description": "Optional Notion integration token."
+            "description": "Notion integration token. 비우면 서버의 NOTION_API_TOKEN 환경 변수를 사용합니다.",
+            "examples": [
+              "ntn_xxxxxxxxxxxx"
+            ]
           },
           "root_page_id": {
             "anyOf": [
@@ -1901,7 +2638,7 @@
               }
             ],
             "title": "Root Page Id",
-            "description": "Optional page id to import. If omitted, all accessible pages are discovered through search."
+            "description": "가져올 페이지 ID. 비우면 접근 가능한 모든 페이지를 검색해서 가져옵니다."
           },
           "workspace_name": {
             "anyOf": [
@@ -1912,11 +2649,13 @@
                 "type": "null"
               }
             ],
-            "title": "Workspace Name"
+            "title": "Workspace Name",
+            "description": "워크스페이스 이름. 문서 부가 정보에 기록됩니다."
           },
           "process_documents": {
             "type": "boolean",
             "title": "Process Documents",
+            "description": "true면 가져온 직후 경험 추출까지 실행합니다.",
             "default": true
           },
           "max_pages": {
@@ -1924,7 +2663,11 @@
             "maximum": 500.0,
             "minimum": 1.0,
             "title": "Max Pages",
-            "default": 100
+            "description": "가져올 최대 페이지 수. 기본 100, 최대 500.",
+            "default": 100,
+            "examples": [
+              100
+            ]
           }
         },
         "type": "object",
@@ -1937,26 +2680,31 @@
         "properties": {
           "imported_page_count": {
             "type": "integer",
-            "title": "Imported Page Count"
+            "title": "Imported Page Count",
+            "description": "가져온 페이지 수"
           },
           "processed_document_count": {
             "type": "integer",
-            "title": "Processed Document Count"
+            "title": "Processed Document Count",
+            "description": "경험 추출까지 마친 문서 수"
           },
           "experience_count": {
             "type": "integer",
-            "title": "Experience Count"
+            "title": "Experience Count",
+            "description": "추출된 경험 수 합계"
           },
           "question_count": {
             "type": "integer",
-            "title": "Question Count"
+            "title": "Question Count",
+            "description": "생성된 보완 질문 수 합계"
           },
           "documents": {
             "items": {
               "$ref": "#/components/schemas/NotionImportedDocumentSummary"
             },
             "type": "array",
-            "title": "Documents"
+            "title": "Documents",
+            "description": "가져온 문서별 결과"
           }
         },
         "type": "object",
@@ -1973,20 +2721,24 @@
         "properties": {
           "document_id": {
             "type": "string",
-            "title": "Document Id"
+            "title": "Document Id",
+            "description": "생성된 문서 ID"
           },
           "status": {
             "type": "string",
-            "title": "Status"
+            "title": "Status",
+            "description": "문서 상태 (uploaded, processed, failed)"
           },
           "experience_count": {
             "type": "integer",
             "title": "Experience Count",
+            "description": "추출된 경험 수",
             "default": 0
           },
           "question_count": {
             "type": "integer",
             "title": "Question Count",
+            "description": "생성된 보완 질문 수",
             "default": 0
           },
           "experiences": {
@@ -1994,7 +2746,8 @@
               "$ref": "#/components/schemas/ExperienceProcessingSummary"
             },
             "type": "array",
-            "title": "Experiences"
+            "title": "Experiences",
+            "description": "추출된 경험 요약 목록"
           }
         },
         "type": "object",
@@ -2009,7 +2762,11 @@
           "answer": {
             "type": "string",
             "minLength": 1,
-            "title": "Answer"
+            "title": "Answer",
+            "description": "보완 질문의 답변. 답변 내용이 경험에 반영됩니다.",
+            "examples": [
+              "팀원 4명과 2주간 스프린트로 진행했고, 제가 API 설계를 맡았습니다."
+            ]
           }
         },
         "type": "object",
@@ -2022,19 +2779,23 @@
         "properties": {
           "question_id": {
             "type": "string",
-            "title": "Question Id"
+            "title": "Question Id",
+            "description": "답변한 질문 ID"
           },
           "experience_id": {
             "type": "string",
-            "title": "Experience Id"
+            "title": "Experience Id",
+            "description": "답변이 반영된 경험 ID"
           },
           "status": {
             "type": "string",
-            "title": "Status"
+            "title": "Status",
+            "description": "질문 상태 (answered)"
           },
           "updated_completeness_score": {
             "type": "number",
-            "title": "Updated Completeness Score"
+            "title": "Updated Completeness Score",
+            "description": "답변 반영 후 경험 완성도 점수 (0~1)"
           }
         },
         "type": "object",
@@ -2085,11 +2846,158 @@
         ],
         "title": "QuestionSummary"
       },
+      "ResumeDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "이력서 문서 ID"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "문서 제목"
+          },
+          "original_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Filename",
+            "description": "업로드한 파일 이름 (PDF 업로드인 경우)"
+          },
+          "source_type": {
+            "type": "string",
+            "title": "Source Type",
+            "description": "기록 종류 (resume 또는 pdf)"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "문서 상태"
+          },
+          "raw_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Text",
+            "description": "이력서 원문 텍스트"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "등록 시각"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_type",
+          "status",
+          "created_at"
+        ],
+        "title": "ResumeDetailResponse"
+      },
+      "ResumeListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "이력서 문서 ID"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "문서 제목",
+            "examples": [
+              "이력서 v2"
+            ]
+          },
+          "original_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Filename",
+            "description": "업로드한 파일 이름 (PDF 업로드인 경우)",
+            "examples": [
+              "resume.pdf"
+            ]
+          },
+          "source_type": {
+            "type": "string",
+            "title": "Source Type",
+            "description": "기록 종류 (resume 또는 pdf)"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "문서 상태 (uploaded, processed, failed)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "등록 시각"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_type",
+          "status",
+          "created_at"
+        ],
+        "title": "ResumeListItem"
+      },
+      "ResumeListResponse": {
+        "properties": {
+          "resumes": {
+            "items": {
+              "$ref": "#/components/schemas/ResumeListItem"
+            },
+            "type": "array",
+            "title": "Resumes",
+            "description": "이력서 목록. 최신순으로 정렬됩니다."
+          }
+        },
+        "type": "object",
+        "title": "ResumeListResponse"
+      },
       "RetrievalChunkResponse": {
         "properties": {
           "chunk_id": {
             "type": "string",
-            "title": "Chunk Id"
+            "title": "Chunk Id",
+            "description": "청크 ID"
           },
           "experience_id": {
             "anyOf": [
@@ -2100,7 +3008,8 @@
                 "type": "null"
               }
             ],
-            "title": "Experience Id"
+            "title": "Experience Id",
+            "description": "청크가 속한 경험 ID"
           },
           "source_document_id": {
             "anyOf": [
@@ -2111,11 +3020,13 @@
                 "type": "null"
               }
             ],
-            "title": "Source Document Id"
+            "title": "Source Document Id",
+            "description": "원본 문서 ID"
           },
           "chunk_text": {
             "type": "string",
-            "title": "Chunk Text"
+            "title": "Chunk Text",
+            "description": "청크 본문"
           },
           "chunk_type": {
             "anyOf": [
@@ -2126,16 +3037,19 @@
                 "type": "null"
               }
             ],
-            "title": "Chunk Type"
+            "title": "Chunk Type",
+            "description": "청크 종류 (situation, task, action, result 등)"
           },
           "similarity": {
             "type": "number",
-            "title": "Similarity"
+            "title": "Similarity",
+            "description": "질의와의 유사도 (0~1)"
           },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
-            "title": "Metadata"
+            "title": "Metadata",
+            "description": "청크 부가 정보"
           }
         },
         "type": "object",
@@ -2150,7 +3064,11 @@
         "properties": {
           "user_id": {
             "type": "string",
-            "title": "User Id"
+            "title": "User Id",
+            "description": "사용자 ID (UUID). 이 사용자의 경험 청크만 검색합니다.",
+            "examples": [
+              "00000000-0000-0000-0000-000000000001"
+            ]
           },
           "queries": {
             "items": {
@@ -2158,14 +3076,25 @@
             },
             "type": "array",
             "minItems": 1,
-            "title": "Queries"
+            "title": "Queries",
+            "description": "검색 질의 목록. 여러 개를 넣으면 질의별 유사도 중 최댓값으로 순위를 매깁니다.",
+            "examples": [
+              [
+                "문제 해결 경험",
+                "성능 개선"
+              ]
+            ]
           },
           "top_k": {
             "type": "integer",
             "maximum": 100.0,
             "minimum": 1.0,
             "title": "Top K",
-            "default": 20
+            "description": "가져올 청크 수. 기본 20, 최대 100.",
+            "default": 20,
+            "examples": [
+              20
+            ]
           }
         },
         "type": "object",
@@ -2182,7 +3111,8 @@
               "$ref": "#/components/schemas/RetrievalChunkResponse"
             },
             "type": "array",
-            "title": "Chunks"
+            "title": "Chunks",
+            "description": "유사도 높은 순으로 정렬된 청크 목록"
           }
         },
         "type": "object",
@@ -2195,11 +3125,19 @@
         "properties": {
           "user_id": {
             "type": "string",
-            "title": "User Id"
+            "title": "User Id",
+            "description": "사용자 ID (UUID). 없는 사용자면 자동으로 만들어집니다.",
+            "examples": [
+              "00000000-0000-0000-0000-000000000001"
+            ]
           },
           "source_type": {
             "type": "string",
-            "title": "Source Type"
+            "title": "Source Type",
+            "description": "기록 종류. plain_text, resume, cover_letter, portfolio, memo, markdown, notion, pdf 중 하나.",
+            "examples": [
+              "cover_letter"
+            ]
           },
           "title": {
             "anyOf": [
@@ -2210,17 +3148,31 @@
                 "type": "null"
               }
             ],
-            "title": "Title"
+            "title": "Title",
+            "description": "문서 제목. 비우면 제목 없이 저장됩니다.",
+            "examples": [
+              "백엔드 프로젝트 자기소개서"
+            ]
           },
           "text": {
             "type": "string",
             "minLength": 1,
-            "title": "Text"
+            "title": "Text",
+            "description": "기록 원문. 이 텍스트에서 경험을 추출합니다.",
+            "examples": [
+              "FastAPI와 PostgreSQL로 추천 API를 개발해 응답 시간을 1.8초에서 0.9초로 줄였습니다."
+            ]
           },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
-            "title": "Metadata"
+            "title": "Metadata",
+            "description": "부가 정보. 자유 형식 JSON 객체.",
+            "examples": [
+              {
+                "company": "삼성전자"
+              }
+            ]
           }
         },
         "type": "object",
@@ -2235,11 +3187,13 @@
         "properties": {
           "document_id": {
             "type": "string",
-            "title": "Document Id"
+            "title": "Document Id",
+            "description": "생성된 문서 ID"
           },
           "status": {
             "type": "string",
-            "title": "Status"
+            "title": "Status",
+            "description": "문서 상태 (uploaded, processed, failed)"
           }
         },
         "type": "object",

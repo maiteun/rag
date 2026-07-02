@@ -37,6 +37,12 @@ class ErrorCode(Enum):
     # =================== QUESTION ===================
     QUESTION_NOT_FOUND = (404, "QST_404_001", "존재하지 않는 질문입니다.")
 
+    # =================== MATCH ===================
+    MATCH_NOT_FOUND = (404, "MAT_404_001", "존재하지 않는 매칭 요청입니다.")
+
+    # =================== RESUME ===================
+    RESUME_NOT_FOUND = (404, "RSM_404_001", "존재하지 않는 이력서입니다.")
+
     # =================== NOTION ===================
     MISSING_NOTION_TOKEN = (400, "NTN_400_001", "notion_token 또는 NOTION_API_TOKEN이 필요합니다.")
     NOTION_API_ERROR = (502, "NTN_502_001", "Notion API 요청에 실패했습니다.")

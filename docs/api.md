@@ -21,6 +21,10 @@ OpenAPI 산출물:
 | POST | `/api/experience-questions/{question_id}/answer` | 보완 질문 답변 |
 | POST | `/api/retrieval/search` | 경험 검색 |
 | POST | `/api/notion/workspaces/import` | Notion 워크스페이스 페이지 가져오기 |
+| POST | `/api/matches` | JD/문항 매칭 요청 생성 |
+| GET | `/api/matches/{match_id}` | 매칭 결과 조회 (폴링용) |
+| GET | `/api/resumes?user_id={user_id}` | 과거 이력서 목록 조회 |
+| GET | `/api/resumes/{resume_id}` | 과거 이력서 상세 조회 |
 
 ## 공통 응답 구조
 
@@ -63,8 +67,43 @@ MVP 범위가 자기소개서 초안 생성까지 확장되면서 다음 API가 
 
 | Method | Path | 설명 |
 | --- | --- | --- |
-| POST | `/api/recommendations/experiences` | JD/문항 기반 문항별 top-k 경험 추천과 추천/비추천 근거 생성 |
 | POST | `/api/cover-letters/drafts` | 사용자가 선택한 경험 기반 자기소개서 초안 생성 |
+
+경험 추천은 별도 API 대신 매칭 API(`POST /api/matches`) 내부의 추천 엔진으로 동작합니다. 현재는 빈 결과를 돌려주는 스텁이고, RAG 추천 로직이 `RecommendationEngine` 구현체로 들어올 예정입니다.
+
+## 매칭 API 사용 방법
+
+`POST /api/matches`로 요청을 만들고, `GET /api/matches/{match_id}`를 폴링해 결과를 가져옵니다. status가 `completed`가 되면 문항별 recommendations가 채워집니다.
+
+요청:
+
+```json
+{
+  "user_id": "00000000-0000-0000-0000-000000000001",
+  "job_description": "FastAPI 기반 서비스 개발 ...",
+  "questions": ["문제 해결 경험을 서술하시오.", "협업 경험을 서술하시오."]
+}
+```
+
+조회 응답의 data:
+
+```json
+{
+  "id": "match_123",
+  "status": "completed",
+  "job_description": "...",
+  "questions": [
+    {
+      "id": "q1",
+      "text": "문제 해결 경험을 서술하시오.",
+      "recommendations": [
+        { "experience_id": "exp_1", "rank": 1, "score": 0.87, "reason": "문제와 해결 과정이 명확함" }
+      ]
+    }
+  ],
+  "created_at": "2026-07-03T12:00:00Z"
+}
+```
 
 ## API 사용 순서
 

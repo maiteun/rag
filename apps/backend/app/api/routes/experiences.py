@@ -21,7 +21,8 @@ router = APIRouter()
     response_model=ApiResponse[ExperienceListResponse, None],
     response_model_exclude_none=True,
     responses=ERROR_RESPONSES,
-    summary="List experiences for a user",
+    summary="경험 목록 조회",
+    description="사용자의 경험 카드를 최신순으로 돌려줍니다.",
 )
 def list_experiences(user_id: str, db: DbSession) -> ApiResponse[ExperienceListResponse, None]:
     experiences = ExperienceRepository(db).list_by_user(user_id)
@@ -34,7 +35,8 @@ def list_experiences(user_id: str, db: DbSession) -> ApiResponse[ExperienceListR
     response_model=ApiResponse[ExperienceDetailResponse, None],
     response_model_exclude_none=True,
     responses=ERROR_RESPONSES,
-    summary="Read an experience with sources and questions",
+    summary="경험 상세 조회",
+    description="경험 카드의 STAR 구조, 출처 문서, 보완 질문까지 함께 돌려줍니다.",
 )
 def get_experience(experience_id: str, db: DbSession) -> ApiResponse[ExperienceDetailResponse, None]:
     experience = ExperienceRepository(db).get(experience_id)
