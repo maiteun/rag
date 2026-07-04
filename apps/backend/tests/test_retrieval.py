@@ -126,6 +126,49 @@ def test_search_merges_multiple_queries_by_max_similarity(db_session):
     assert abs(sims["C"] - 1.0) < 1e-6
 
 
+# ---- service: query_weights 가중 결합 (문항·JD가 한쪽에 묻히지 않게) ----
+
+def test_weighted_combine_blends_queries(db_session):
+    # 두 질의를 가중 평균한 벡터로 검색 → 가중치 큰 질의 방향 청크가 상위.
+    user = "11111111-0000-0000-0000-000000000008"
+    _seed_user(db_session, user)
+    _add_chunk(db_session, user, "Q1side", _vec(1, 0))
+    _add_chunk(db_session, user, "Q2side", _vec(0, 1))
+    db_session.flush()
+
+    embeddings = _StubEmbeddings({"q1": _vec(1, 0), "q2": _vec(0, 1)})
+    service = RetrievalService(db_session, embeddings=embeddings)
+
+    # q1에 더 큰 가중 → Q1side가 위
+    r = service.search(RetrievalSearchRequest(user_id=user, queries=["q1", "q2"], query_weights=[2.0, 1.0], top_k=10))
+    assert r[0].chunk_id == "Q1side"
+    # 가중 뒤집으면 Q2side가 위
+    r2 = service.search(RetrievalSearchRequest(user_id=user, queries=["q1", "q2"], query_weights=[1.0, 2.0], top_k=10))
+    assert r2[0].chunk_id == "Q2side"
+
+
+def test_weighted_combine_lets_low_scale_query_matter(db_session):
+    # max 병합이면 절대값 큰 질의가 독식하지만, 가중 결합은 약한 질의도 순위에 반영된다.
+    # A는 강한질의(strong)에 완벽매칭, B는 약한질의(weak)에 완벽+strong에도 부분매칭.
+    user = "11111111-0000-0000-0000-000000000009"
+    _seed_user(db_session, user)
+    _add_chunk(db_session, user, "A", _vec(1, 0))
+    _add_chunk(db_session, user, "B", _vec(0, 1))
+    db_session.flush()
+
+    embeddings = _StubEmbeddings({"strong": _vec(1, 0), "weak": _vec(0, 1)})
+    service = RetrievalService(db_session, embeddings=embeddings)
+
+    # max 병합(가중치 없음): 두 질의 각각 완벽매칭 → A, B 모두 sim 1.0
+    m = {r.chunk_id: r.similarity for r in service.search(
+        RetrievalSearchRequest(user_id=user, queries=["strong", "weak"], top_k=10))}
+    assert abs(m["A"] - 1.0) < 1e-6 and abs(m["B"] - 1.0) < 1e-6
+    # 동등 가중 결합: 둘 다 0.707로 동률 (한쪽이 독식하지 않음)
+    w = {r.chunk_id: r.similarity for r in service.search(
+        RetrievalSearchRequest(user_id=user, queries=["strong", "weak"], query_weights=[1.0, 1.0], top_k=10))}
+    assert abs(w["A"] - w["B"]) < 1e-6
+
+
 def test_search_empty_when_no_chunks(db_session):
     user = "11111111-0000-0000-0000-000000000007"
     _seed_user(db_session, user)

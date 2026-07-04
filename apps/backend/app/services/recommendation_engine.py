@@ -17,6 +17,11 @@ from app.services.retrieval_service import RetrievalService
 # R2 후보 풀 크기 (넓게 뽑아 recall 확보 — R4가 뒤에서 최종 개수를 줄인다)
 CANDIDATE_POOL_SIZE = 20
 
+# 검색 질의 결합 가중치 (문항, JD). max 병합은 JD(절대 유사도가 큼)가 독식해 문항이 무시되던
+# 문제 때문에, 두 임베딩을 가중 평균한 단일 벡터로 검색한다. 동등 가중이 기본 — 골든셋으로 튜닝 여지.
+QUESTION_WEIGHT = 1.0
+JD_WEIGHT = 1.0
+
 
 class RecommendationEngine(Protocol):
     """문항별 경험 추천 엔진 계약. 구현은 RAG 파트 담당."""
@@ -64,7 +69,15 @@ class RagRecommendationEngine:
         question_type이 주어지면 R6 선호신호(preference)를 계산해 R3에 실어준다.
         requirement_terms(R1 skills/keywords)가 있으면 쿼리 추출 토큰과 합쳐 R2 ⑤ 메타부스트에 쓴다.
         """
-        queries = [text for text in (question, job_description) if text and text.strip()]
+        # 문항·JD를 (질의, 가중치) 쌍으로. max 병합 대신 가중 결합 → 문항이 JD에 묻히지 않게.
+        queries: list[str] = []
+        weights: list[float] = []
+        if question and question.strip():
+            queries.append(question)
+            weights.append(QUESTION_WEIGHT)
+        if job_description and job_description.strip():
+            queries.append(job_description)
+            weights.append(JD_WEIGHT)
         if not queries:
             return [], [], {}
 
@@ -75,7 +88,9 @@ class RagRecommendationEngine:
 
         # R2: 검색 → 경험(block) 단위 집계 (경험별 최대 유사도)
         chunks = self.retrieval.search(
-            RetrievalSearchRequest(user_id=user_id, queries=queries, top_k=CANDIDATE_POOL_SIZE)
+            RetrievalSearchRequest(
+                user_id=user_id, queries=queries, query_weights=weights, top_k=CANDIDATE_POOL_SIZE
+            )
         )
         best_relevance: dict[str, float] = {}
         for chunk in chunks:
