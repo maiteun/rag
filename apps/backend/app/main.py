@@ -2,7 +2,17 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import documents, experiences, health, matches, notion, questions, resumes, retrieval
+from app.api.routes import (
+    documents,
+    experiences,
+    health,
+    matches,
+    notion,
+    questions,
+    resumes,
+    retrieval,
+    selections,
+)
 from app.core.errors import (
     BusinessError,
     business_error_handler,
@@ -38,6 +48,7 @@ def create_app() -> FastAPI:
     app.include_router(retrieval.router, prefix="/api", tags=["retrieval"])
     app.include_router(matches.router, prefix="/api", tags=["matches"])
     app.include_router(resumes.router, prefix="/api", tags=["resumes"])
+    app.include_router(selections.router, prefix="/api", tags=["selections"])
     return app
 
 
