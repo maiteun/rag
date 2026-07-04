@@ -4,9 +4,12 @@ from sqlalchemy.orm import Session
 
 from app.repositories.experience_repository import ExperienceRepository
 from app.schemas.match import MatchRecommendation
+from app.schemas.query_decomposition import QueryDecompositionRequest
 from app.schemas.retrieval import RetrievalSearchRequest
 from app.services.adaptive_topk import select_top_k
-from app.services.reranking import RerankCandidate, rerank
+from app.services.context_packet import ContextPacket, ExperienceMeta, build_context_packet
+from app.services.query_decomposition_service import QueryDecompositionService
+from app.services.reranking import RerankCandidate, RerankedCandidate, rerank
 from app.services.retrieval_service import RetrievalService
 
 # R2 후보 풀 크기 (넓게 뽑아 recall 확보 — R4가 뒤에서 최종 개수를 줄인다)
@@ -28,9 +31,10 @@ class StubRecommendationEngine:
 
 
 class RagRecommendationEngine:
-    """실제 RAG 파이프라인: R2(검색) → R3(리랭킹) → R4(적응형 top-k).
+    """실제 RAG 파이프라인: R2(검색) → R3(리랭킹) → R4(적응형 top-k) → R7(컨텍스트 패킷).
 
-    R1(쿼리분해) 연동은 후속 — 지금은 문항+JD를 검색 쿼리로 직접 사용.
+    recommend()의 검색 스코어링은 R1 없이 문항+JD를 직접 쿼리로 사용(R3 결정 유지).
+    build_packet()만 R1(쿼리분해)을 물어 uncovered_requirements/question_type를 채운다.
     """
 
     def __init__(
@@ -38,16 +42,21 @@ class RagRecommendationEngine:
         db: Session,
         retrieval: RetrievalService | None = None,
         experiences: ExperienceRepository | None = None,
+        decomposer: QueryDecompositionService | None = None,
     ):
         self.retrieval = retrieval or RetrievalService(db)
         self.experiences = experiences or ExperienceRepository(db)
+        self.decomposer = decomposer or QueryDecompositionService()
 
-    def recommend(self, user_id: str, job_description: str, question: str) -> list[MatchRecommendation]:
+    def _run_pipeline(
+        self, user_id: str, job_description: str, question: str
+    ) -> tuple[list[RerankedCandidate], list[str], dict[str, ExperienceMeta]]:
+        """R2→R3→R4 공통 파이프라인. (reranked 전체, R4 컷 통과 id들, block_id별 메타) 반환."""
         queries = [text for text in (question, job_description) if text and text.strip()]
         if not queries:
-            return []
+            return [], [], {}
 
-        # R2: 검색 → 청크 결과를 경험(block) 단위로 집계 (경험별 최대 유사도)
+        # R2: 검색 → 경험(block) 단위 집계 (경험별 최대 유사도)
         chunks = self.retrieval.search(
             RetrievalSearchRequest(user_id=user_id, queries=queries, top_k=CANDIDATE_POOL_SIZE)
         )
@@ -59,10 +68,11 @@ class RagRecommendationEngine:
             if prev is None or chunk.similarity > prev:
                 best_relevance[chunk.experience_id] = chunk.similarity
         if not best_relevance:
-            return []
+            return [], [], {}
 
-        # 경험 메타 로드 → R3 입력 후보 구성 (completeness_score 0~100 → /100 정규화)
+        # 경험 메타 로드 → R3 입력 후보 + R7용 메타 (completeness_score 0~100 → /100)
         candidates: list[RerankCandidate] = []
+        meta_by_id: dict[str, ExperienceMeta] = {}
         for experience_id, relevance in best_relevance.items():
             experience = self.experiences.get(experience_id)
             if experience is None:
@@ -77,18 +87,55 @@ class RagRecommendationEngine:
                     completeness=float(experience.completeness_score) / 100.0,
                 )
             )
+            meta_by_id[experience_id] = ExperienceMeta(
+                has_metric=bool(experience.has_metric),
+                has_role=bool(experience.has_role),
+                skills=list(experience.skills or []),
+                competencies=list(experience.competencies or []),
+                sources=[
+                    source.source_excerpt or source.source_document_id for source in experience.sources
+                ],
+                star_complete=all([experience.situation, experience.action, experience.result]),
+            )
         if not candidates:
-            return []
+            return [], [], {}
 
         # R3: 리랭킹 → R4: 적응형 top-k 컷
         reranked = rerank(candidates)
         k = select_top_k([item.final_score for item in reranked]).k
+        recommended_ids = [item.block_id for item in reranked[:k]]
+        return reranked, recommended_ids, meta_by_id
+
+    def recommend(self, user_id: str, job_description: str, question: str) -> list[MatchRecommendation]:
+        reranked, recommended_ids, _ = self._run_pipeline(user_id, job_description, question)
+        by_id = {item.block_id: item for item in reranked}
         return [
             MatchRecommendation(
-                experience_id=item.block_id,
+                experience_id=block_id,
                 rank=index + 1,
-                score=round(item.final_score, 4),
-                signals=item.signals,
+                score=round(by_id[block_id].final_score, 4),
+                signals=by_id[block_id].signals,
             )
-            for index, item in enumerate(reranked[:k])
+            for index, block_id in enumerate(recommended_ids)
         ]
+
+    def build_packet(self, user_id: str, job_description: str, question: str) -> ContextPacket:
+        """R7: R4 컷 이후 컨텍스트 패킷 구성. R1으로 요구사항·문항유형을 채운다."""
+        reranked, recommended_ids, meta_by_id = self._run_pipeline(user_id, job_description, question)
+        decomposition = self.decomposer.decompose(
+            QueryDecompositionRequest(job_description=job_description, question=question)
+        )
+        requirements = [
+            keyword
+            for requirement in decomposition.requirements
+            for keyword in (requirement.keywords or [requirement.text])
+        ]
+        question_type = decomposition.question_type.value if decomposition.question_type else None
+        return build_context_packet(
+            question=question,
+            question_type=question_type,
+            requirements=requirements,
+            reranked=reranked,
+            recommended_ids=recommended_ids,
+            experiences=meta_by_id,
+        )
