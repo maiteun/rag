@@ -8,6 +8,7 @@ from app.schemas.query_decomposition import QueryDecompositionRequest
 from app.schemas.retrieval import RetrievalSearchRequest
 from app.services.adaptive_topk import select_top_k
 from app.services.context_packet import ContextPacket, ExperienceMeta, build_context_packet
+from app.services.preference import W4_DEFAULT, compute_preferences_batch
 from app.services.query_decomposition_service import QueryDecompositionService
 from app.services.reranking import RerankCandidate, RerankedCandidate, rerank
 from app.services.retrieval_service import RetrievalService
@@ -44,14 +45,18 @@ class RagRecommendationEngine:
         experiences: ExperienceRepository | None = None,
         decomposer: QueryDecompositionService | None = None,
     ):
+        self.db = db
         self.retrieval = retrieval or RetrievalService(db)
         self.experiences = experiences or ExperienceRepository(db)
         self.decomposer = decomposer or QueryDecompositionService()
 
     def _run_pipeline(
-        self, user_id: str, job_description: str, question: str
+        self, user_id: str, job_description: str, question: str, question_type: str | None = None
     ) -> tuple[list[RerankedCandidate], list[str], dict[str, ExperienceMeta]]:
-        """R2→R3→R4 공통 파이프라인. (reranked 전체, R4 컷 통과 id들, block_id별 메타) 반환."""
+        """R2→R3→R4 공통 파이프라인. (reranked 전체, R4 컷 통과 id들, block_id별 메타) 반환.
+
+        question_type이 주어지면 R6 선호신호(preference)를 계산해 R3에 실어준다.
+        """
         queries = [text for text in (question, job_description) if text and text.strip()]
         if not queries:
             return [], [], {}
@@ -100,8 +105,16 @@ class RagRecommendationEngine:
         if not candidates:
             return [], [], {}
 
-        # R3: 리랭킹 → R4: 적응형 top-k 컷
-        reranked = rerank(candidates)
+        # R6: 문항유형별 선호신호를 계산해 후보에 실어줌 (question_type 없거나 db 없으면 0 → 영향 없음)
+        if question_type is not None and self.db is not None:
+            preferences = compute_preferences_batch(
+                self.db, user_id, question_type, [c.block_id for c in candidates]
+            )
+            for candidate in candidates:
+                candidate.preference = preferences.get(candidate.block_id, 0.0)
+
+        # R3: 리랭킹(preference를 w4로 반영) → R4: 적응형 top-k 컷
+        reranked = rerank(candidates, w4=W4_DEFAULT)
         k = select_top_k([item.final_score for item in reranked]).k
         recommended_ids = [item.block_id for item in reranked[:k]]
         return reranked, recommended_ids, meta_by_id
@@ -121,16 +134,19 @@ class RagRecommendationEngine:
 
     def build_packet(self, user_id: str, job_description: str, question: str) -> ContextPacket:
         """R7: R4 컷 이후 컨텍스트 패킷 구성. R1으로 요구사항·문항유형을 채운다."""
-        reranked, recommended_ids, meta_by_id = self._run_pipeline(user_id, job_description, question)
+        # R1 먼저 분해 → question_type을 R6 선호계산(파이프라인)에도 넘긴다.
         decomposition = self.decomposer.decompose(
             QueryDecompositionRequest(job_description=job_description, question=question)
+        )
+        question_type = decomposition.question_type.value if decomposition.question_type else None
+        reranked, recommended_ids, meta_by_id = self._run_pipeline(
+            user_id, job_description, question, question_type=question_type
         )
         requirements = [
             keyword
             for requirement in decomposition.requirements
             for keyword in (requirement.keywords or [requirement.text])
         ]
-        question_type = decomposition.question_type.value if decomposition.question_type else None
         return build_context_packet(
             question=question,
             question_type=question_type,
