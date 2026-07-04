@@ -13,14 +13,14 @@ from app.schemas.match import (
     MatchQuestionResult,
     MatchRecommendation,
 )
-from app.services.recommendation_engine import RecommendationEngine, StubRecommendationEngine
+from app.services.recommendation_engine import RagRecommendationEngine, RecommendationEngine
 
 
 class MatchService:
     def __init__(self, db: Session, engine: RecommendationEngine | None = None):
         self.db = db
         self.matches = MatchRepository(db)
-        self.engine = engine or StubRecommendationEngine()
+        self.engine = engine or RagRecommendationEngine(db)
 
     def create(self, request: MatchCreateRequest) -> MatchRequest:
         self._ensure_user(request.user_id)

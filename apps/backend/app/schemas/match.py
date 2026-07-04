@@ -34,6 +34,10 @@ class MatchRecommendation(BaseModel):
         description="이 경험을 추천한 이유",
         examples=["문제와 해결 과정이 명확함"],
     )
+    signals: dict = Field(
+        default_factory=dict,
+        description="리랭킹 디버깅용 신호 (relevance/trust/frequency, has_metric 등)",
+    )
 
 
 class MatchQuestionResult(BaseModel):
