@@ -21,3 +21,21 @@ class ChunkRepository:
         stmt = select(ExperienceChunk).where(ExperienceChunk.user_id == user_id)
         return list(self.db.scalars(stmt).all())
 
+    def search_by_vector(
+        self, user_id: str, query_embedding: list[float], top_k: int
+    ) -> list[tuple[ExperienceChunk, float]]:
+        """pgvector 코사인 거리(`<=>`)로 최근접 top_k 청크를 DB에서 정렬해 가져온다.
+
+        임베딩이 없는(NULL) 청크는 비교 불가라 제외한다. 반환은 (chunk, distance) —
+        distance는 코사인 거리[0,2], 유사도 = 1 - distance 는 서비스에서 계산.
+        """
+        distance = ExperienceChunk.embedding.cosine_distance(query_embedding)
+        stmt = (
+            select(ExperienceChunk, distance.label("distance"))
+            .where(ExperienceChunk.user_id == user_id)
+            .where(ExperienceChunk.embedding.isnot(None))
+            .order_by(distance)
+            .limit(top_k)
+        )
+        return [(chunk, float(dist)) for chunk, dist in self.db.execute(stmt).all()]
+

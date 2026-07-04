@@ -8,6 +8,7 @@ from app.schemas.query_decomposition import QueryDecompositionRequest
 from app.schemas.retrieval import RetrievalSearchRequest
 from app.services.adaptive_topk import select_top_k
 from app.services.context_packet import ContextPacket, ExperienceMeta, build_context_packet
+from app.services.metadata_boost import compute_metadata_boost, extract_query_terms
 from app.services.preference import W4_DEFAULT, compute_preferences_batch
 from app.services.query_decomposition_service import QueryDecompositionService
 from app.services.reranking import RerankCandidate, RerankedCandidate, rerank
@@ -51,15 +52,26 @@ class RagRecommendationEngine:
         self.decomposer = decomposer or QueryDecompositionService()
 
     def _run_pipeline(
-        self, user_id: str, job_description: str, question: str, question_type: str | None = None
+        self,
+        user_id: str,
+        job_description: str,
+        question: str,
+        question_type: str | None = None,
+        requirement_terms: list[str] | None = None,
     ) -> tuple[list[RerankedCandidate], list[str], dict[str, ExperienceMeta]]:
         """R2→R3→R4 공통 파이프라인. (reranked 전체, R4 컷 통과 id들, block_id별 메타) 반환.
 
         question_type이 주어지면 R6 선호신호(preference)를 계산해 R3에 실어준다.
+        requirement_terms(R1 skills/keywords)가 있으면 쿼리 추출 토큰과 합쳐 R2 ⑤ 메타부스트에 쓴다.
         """
         queries = [text for text in (question, job_description) if text and text.strip()]
         if not queries:
             return [], [], {}
+
+        # R2 ⑤ 메타부스트용 요구사항 용어: 쿼리에서 추출한 토큰 ∪ (있으면) R1 skills/keywords
+        boost_terms = extract_query_terms(queries)
+        if requirement_terms:
+            boost_terms |= {term for term in requirement_terms if term and term.strip()}
 
         # R2: 검색 → 경험(block) 단위 집계 (경험별 최대 유사도)
         chunks = self.retrieval.search(
@@ -82,6 +94,12 @@ class RagRecommendationEngine:
             experience = self.experiences.get(experience_id)
             if experience is None:
                 continue
+            # R2 ⑤ 소프트 부스트 (skills/type). 매칭 없으면 0 → 후보 유지(하드 필터 아님).
+            metadata_boost, _ = compute_metadata_boost(
+                experience_skills=list(experience.skills or []),
+                experience_type=getattr(experience, "experience_type", None),
+                requirement_terms=boost_terms,
+            )
             candidates.append(
                 RerankCandidate(
                     block_id=experience_id,
@@ -90,6 +108,7 @@ class RagRecommendationEngine:
                     has_role=bool(experience.has_role),
                     sources_count=len(experience.sources),
                     completeness=float(experience.completeness_score) / 100.0,
+                    metadata_boost=metadata_boost,
                 )
             )
             meta_by_id[experience_id] = ExperienceMeta(
@@ -139,14 +158,15 @@ class RagRecommendationEngine:
             QueryDecompositionRequest(job_description=job_description, question=question)
         )
         question_type = decomposition.question_type.value if decomposition.question_type else None
-        reranked, recommended_ids, meta_by_id = self._run_pipeline(
-            user_id, job_description, question, question_type=question_type
-        )
         requirements = [
             keyword
             for requirement in decomposition.requirements
             for keyword in (requirement.keywords or [requirement.text])
         ]
+        reranked, recommended_ids, meta_by_id = self._run_pipeline(
+            user_id, job_description, question, question_type=question_type,
+            requirement_terms=requirements,
+        )
         return build_context_packet(
             question=question,
             question_type=question_type,
