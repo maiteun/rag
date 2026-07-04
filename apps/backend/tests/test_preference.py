@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from app.models.selection_event import SelectionEvent
+from app.models.user import User
 from app.schemas.retrieval import RetrievalChunkResponse
 from app.services.preference import compute_preference, compute_preferences_batch
 from app.services.recommendation_engine import RagRecommendationEngine
@@ -12,6 +13,10 @@ USER = "00000000-0000-0000-0000-000000000030"
 
 
 def _add_events(db, question_type, exposed, selected, times, user_id=USER):
+    # selection_events.user_id 는 users FK — Postgres는 FK를 강제하므로 유저를 먼저 확정한다.
+    # (SelectionEvent엔 User relationship이 없어 UOW가 삽입 순서를 보장하지 않음 → 명시 flush.)
+    db.merge(User(id=user_id))
+    db.flush()
     for _ in range(times):
         db.add(
             SelectionEvent(
