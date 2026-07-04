@@ -11,6 +11,7 @@ from app.models import (  # noqa: E402,F401
     experience_question,
     experience_source,
     match_request,
+    selection_event,
     source_document,
     user,
 )
