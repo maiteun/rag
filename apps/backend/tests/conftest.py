@@ -59,10 +59,12 @@ def _test_engine():
             returncode=1,
         )
 
-    # 2) 테스트 DB에 pgvector 확장 + 스키마 생성 (모델 기준, embedding=vector(1536))
+    # 2) 테스트 DB에 pgvector 확장 + 스키마 재생성 (모델 기준, embedding=vector(1536))
+    #    drop_all→create_all 로 항상 현재 모델과 일치시킨다(스키마 변경에도 안전).
     engine = create_engine(test_url, future=True)
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
     yield engine

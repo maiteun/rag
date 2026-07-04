@@ -50,7 +50,7 @@ def test_document_processing_pipeline_and_answer_flow(db_session):
 
     chunks = db_session.query(ExperienceChunk).filter(ExperienceChunk.experience_id == experience.id).all()
     assert chunks
-    assert all(chunk.embedding for chunk in chunks)
+    assert all(chunk.embedding is not None for chunk in chunks)
 
     results = RetrievalService(db_session).search(
         RetrievalSearchRequest(user_id=user_id, queries=["FastAPI 성능 개선 경험"], top_k=5)
