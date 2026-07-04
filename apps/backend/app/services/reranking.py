@@ -36,6 +36,7 @@ class RerankCandidate:
     sources_count: int = 0
     completeness: float = 0.0  # 0~1
     preference: float = 0.0  # R6 연결 전엔 0
+    metadata_boost: float = 0.0  # R2 ⑤ 메타 소프트 부스트(skills/type). 이미 스케일된 가산항
 
 
 @dataclass
@@ -88,7 +89,10 @@ def rerank(
         trust = _trust(candidate)
         frequency = _frequency(candidate)
         preference = candidate.preference  # 현재 항상 0
-        final_score = w1 * relevance + w2 * trust + w5 * frequency + w4 * preference
+        # metadata_boost: 이미 스케일된 소프트 부스트라 계수 없이 그대로 가산 (BOOST 상수가 곧 가중치)
+        final_score = (
+            w1 * relevance + w2 * trust + w5 * frequency + w4 * preference + candidate.metadata_boost
+        )
         reranked.append(
             RerankedCandidate(
                 block_id=candidate.block_id,
@@ -103,6 +107,7 @@ def rerank(
                     "sources_count": candidate.sources_count,
                     "completeness": round(_clip(candidate.completeness), 4),
                     "search_score": candidate.search_score,
+                    "metadata_boost": round(candidate.metadata_boost, 4),
                     "weights": {"w1": w1, "w2": w2, "w5": w5, "w4": w4},
                 },
             )
