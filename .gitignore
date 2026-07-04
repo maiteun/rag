@@ -5,8 +5,10 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .env
+.venv/
 AGENTS.md
 CLAUDE.md
+PROGRESS.md
 uv.lock
 tmp/
 infra/postgres/data/*
