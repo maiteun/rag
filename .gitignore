@@ -12,3 +12,4 @@ PROGRESS.md
 uv.lock
 tmp/
 infra/postgres/data/*
+testdata/
