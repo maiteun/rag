@@ -29,9 +29,9 @@ app/utils        text and scoring utility
 사용자 기록 입력
   -> 원문 저장
   -> 텍스트 정제
-  -> 경험 단위 구조화
+  -> 경험 단위 구조화(STAR + capability facets)
   -> 출처 연결
-  -> 검색 chunk 생성
+  -> 검색 chunk 생성(summary/STAR + facet)
   -> embedding 저장
   -> 보완 질문 생성
 ```
@@ -69,8 +69,9 @@ JD/문항 입력
 - 사용자
 - 원문 문서
 - 경험 카드
+- capability facet
 - 경험별 출처
-- 검색 chunk
+- 검색 chunk(summary/STAR chunk, facet chunk)
 - embedding
 - 보완 질문과 답변
 - 추천 결과

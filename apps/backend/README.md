@@ -8,7 +8,7 @@ KHU:DArchive backend는 사용자의 문서나 텍스트 기록을 받아 경험
 - 원본 문서 저장 및 텍스트 정제
 - LLM 기반 경험 정보 추출
 - 경험 카드 저장 및 원본 evidence 연결
-- 경험 기반 RAG chunk 생성
+- 경험 기반 RAG chunk 생성: summary/STAR chunk와 facet chunk
 - OpenAI embedding 저장
 - 경험 완성도 점수 계산
 - 부족한 정보를 보완하기 위한 질문 생성
@@ -34,16 +34,22 @@ KHU:DArchive backend는 사용자의 문서나 텍스트 기록을 받아 경험
 
 - `GET /health`
 - `POST /api/documents/text`
+- `POST /api/documents/pdf`
 - `POST /api/documents/{document_id}/process`
 - `GET /api/documents/{document_id}/processing-result`
 - `GET /api/experiences`
 - `GET /api/experiences/{experience_id}`
 - `POST /api/experience-questions/{question_id}/answer`
 - `POST /api/retrieval/search`
+- `POST /api/notion/workspaces/import`
+- `POST /api/matches`
+- `GET /api/matches/{match_id}`
+- `POST /api/selections`
+- `GET /api/resumes`
+- `GET /api/resumes/{resume_id}`
 
 ## MVP 예정 API
 
-- `POST /api/recommendations/experiences`
 - `POST /api/cover-letters/drafts`
 
 ## DB 구성
@@ -54,9 +60,9 @@ KHU:DArchive backend는 사용자의 문서나 텍스트 기록을 받아 경험
 
 1. 사용자가 입력한 원본 텍스트는 `source_documents`에 저장됩니다.
 2. 문서 처리 시 원본 텍스트를 정제하고, LLM으로 경험 정보를 추출합니다.
-3. 추출된 경험은 `experiences`에 저장됩니다.
+3. 추출된 경험은 `experiences`에 저장됩니다. 경험에는 STAR 필드와 함께 RAG용 capability facet이 `facets` JSON 배열로 저장됩니다.
 4. 경험과 원본 문서의 evidence 관계는 `experience_sources`에 저장됩니다.
-5. 경험의 summary/situation/action/result/learned를 검색용 chunk로 나누어 `experience_chunks`에 저장합니다.
+5. 경험의 summary/situation/action/result/learned와 각 facet을 검색용 chunk로 나누어 `experience_chunks`에 저장합니다.
 6. 각 chunk의 embedding은 `experience_chunks.embedding`에 저장합니다.
 7. 보완 질문 답변이 들어오면 해당 경험의 필드를 업데이트하고, 기존 chunk를 삭제한 뒤 chunk와 embedding을 다시 생성합니다.
 8. JD/문항이 입력되면 경험 chunk를 검색하고 experience 단위로 묶어 추천 후보를 구성합니다.
@@ -114,6 +120,7 @@ LLM이 원본 문서에서 추출한 경험 카드입니다. 자기소개서나 
 | `skills` | 관련 기술 목록, JSON 배열 |
 | `competencies` | 역량 목록, JSON 배열 |
 | `keywords` | 키워드 목록, JSON 배열 |
+| `facets` | capability 단위 facet 목록, JSON 배열. 각 facet은 `theme`, `capability`, `label`, `situation`, `action`, `result`, `details`, `evidence`를 포함 |
 | `has_metric`, `has_role`, `has_result`, `has_conflict`, `has_learning` | 경험 완성도 판단용 플래그 |
 | `completeness_score` | 경험 완성도 점수 |
 | `confidence_score` | LLM 추출 신뢰도 |
@@ -135,7 +142,7 @@ LLM이 원본 문서에서 추출한 경험 카드입니다. 자기소개서나 
 
 #### `experience_chunks`
 
-RAG 검색의 핵심 테이블입니다. 검색 대상 텍스트 chunk와 embedding을 저장합니다.
+RAG 검색의 핵심 테이블입니다. 검색 대상 텍스트 chunk와 embedding을 저장합니다. 한 경험에서는 기존 경험 요약/STAR chunk와 별도로 facet별 chunk가 함께 생성됩니다.
 
 | 컬럼 | 설명 |
 | --- | --- |
@@ -144,10 +151,10 @@ RAG 검색의 핵심 테이블입니다. 검색 대상 텍스트 chunk와 embedd
 | `experience_id` | chunk가 연결된 경험 ID |
 | `source_document_id` | chunk가 유래한 원본 문서 ID |
 | `chunk_text` | 검색에 사용할 실제 텍스트 |
-| `chunk_type` | chunk 종류. 예: `experience_summary`, `situation`, `action`, `result`, `reflection` |
+| `chunk_type` | chunk 종류. 예: `experience_summary`, `situation`, `action`, `result`, `reflection`, `facet` |
 | `token_count` | chunk token 수 |
 | `chunk_index` | 같은 경험 안에서의 chunk 순서 |
-| `metadata` | 검색 결과에 함께 내려줄 메타데이터. 현재 `title`, `skills`, `competencies` 포함 |
+| `metadata` | 검색 결과에 함께 내려줄 메타데이터. 공통으로 `title`, `skills`, `competencies`를 포함하고, facet chunk는 `facet_index`, `facet_capability`, `facet_theme`, `facet_label`, `facet_details`, `facet_evidence`를 추가로 포함 |
 | `embedding` | chunk embedding 배열. 현재 SQLAlchemy 모델에서는 JSON으로 저장 |
 | `created_at`, `updated_at` | 생성/수정 시각 |
 
@@ -198,7 +205,9 @@ RAG 검색의 핵심 테이블입니다. 검색 대상 텍스트 chunk와 embedd
 
 - 검색에 바로 사용할 데이터는 `experience_chunks.chunk_text`와 `experience_chunks.embedding`입니다.
 - 검색 범위는 사용자별로 분리되어 있으므로 `user_id` 조건을 반드시 사용해야 합니다.
-- chunk는 경험 단위로 생성되며, `experience_id`를 통해 구조화된 STAR 필드와 점수 정보를 조회할 수 있습니다.
+- chunk는 경험 단위로 생성되며, `experience_id`를 통해 구조화된 STAR 필드, facet, 점수 정보를 조회할 수 있습니다.
+- facet chunk는 capability 단위 검색을 위해 flat하게 임베딩합니다. `theme`은 검색 라우팅용이 아니라 화면 그룹핑과 소프트 신호용입니다.
+- 현재 허용된 facet theme은 `프로젝트 수행`, `데이터 분석`, `기술 구현`, `협업`, `커뮤니케이션`, `문제 해결`, `성과`, `학습`입니다. 문제 정의, 분석 방향 재설계, 범위 설정, 가설 설정처럼 프로젝트 수행 구조를 잡는 facet은 `문제 해결`이 아니라 `프로젝트 수행`으로 분류합니다.
 - 원문 evidence가 필요하면 `experience_sources`를 통해 `source_documents.raw_text`, `source_documents.cleaned_text`, `source_excerpt`를 확인할 수 있습니다.
 - 보완 질문 답변 후에는 기존 chunk가 재생성되므로, 같은 `experience_id`의 chunk ID는 바뀔 수 있습니다.
 - 현재 migration에는 `pgvector` extension 생성과 `embedding` ivfflat index 생성 코드가 있지만, 모델 컬럼은 JSON으로 정의되어 있습니다. 실제 벡터 인덱스 기반 검색으로 전환하려면 `embedding` 컬럼 타입을 pgvector `Vector(dim)` 형태로 맞추는 작업이 필요합니다.

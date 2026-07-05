@@ -1178,7 +1178,7 @@ components:
           title: User Id
         file:
           type: string
-          contentMediaType: application/octet-stream
+          format: binary
           title: File
         title:
           anyOf:
@@ -1339,6 +1339,11 @@ components:
             type: string
           type: array
           title: Keywords
+        facets:
+          items:
+            $ref: '#/components/schemas/ExperienceFacetResponse'
+          type: array
+          title: Facets
         completeness_score:
           type: string
           pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
@@ -1364,6 +1369,49 @@ components:
       - completeness_score
       - confidence_score
       title: ExperienceDetailResponse
+    ExperienceFacetResponse:
+      properties:
+        capability:
+          type: string
+          title: Capability
+        theme:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Theme
+        label:
+          type: string
+          title: Label
+        situation:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Situation
+        action:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Action
+        result:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Result
+        details:
+          items:
+            type: string
+          type: array
+          title: Details
+        evidence:
+          items:
+            type: string
+          type: array
+          title: Evidence
+      type: object
+      required:
+      - capability
+      - label
+      title: ExperienceFacetResponse
     ExperienceListItem:
       properties:
         id:
@@ -2219,11 +2267,6 @@ components:
         type:
           type: string
           title: Error Type
-        input:
-          title: Input
-        ctx:
-          type: object
-          title: Context
       type: object
       required:
       - loc
