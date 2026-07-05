@@ -1,24 +1,100 @@
+import { useState } from 'react'
 import { Icon } from '../../../components/ui/icon'
-import { PanelHeader, PanelMessage } from '../../../components/ui/panel'
-import { MatchLevelChip } from '../../../components/ui/match-level-chip'
-import type { MatchResult, Recommendation } from '../../../types'
+import { PanelHeader } from '../../../components/ui/panel'
+import { createCoverLetterDraft } from '../../../api/data-source'
+import { DraftEditor } from './draft-editor'
+import type { ExperienceSummary, MatchResult } from '../../../types'
 
 interface MatchingCanvasProps {
   match: MatchResult | null
+  experiences: ExperienceSummary[]
   activeQuestion: number
   onQuestionChange: (index: number) => void
   onStart: () => void
-  onExperience: (id: string) => void
 }
 
 export function MatchingCanvas({
   match,
+  experiences,
   activeQuestion,
   onQuestionChange,
   onStart,
-  onExperience,
 }: MatchingCanvasProps) {
   const question = match?.questions[activeQuestion]
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const [draftErrors, setDraftErrors] = useState<Record<string, string>>({})
+  const [selectedExperienceIds, setSelectedExperienceIds] = useState<
+    Record<string, string[]>
+  >({})
+  const [generatedQuestions, setGeneratedQuestions] = useState<
+    Record<string, boolean>
+  >({})
+  const [generatingQuestionId, setGeneratingQuestionId] = useState<string | null>(null)
+
+  const currentDraft = question
+    ? (drafts[question.id] ?? question.draft ?? '')
+    : ''
+  const currentExperienceIds = question
+    ? (selectedExperienceIds[question.id] ?? [])
+    : []
+  const currentExperiences = currentExperienceIds
+    .map((id) => experiences.find((experience) => experience.id === id))
+    .filter((experience): experience is ExperienceSummary => Boolean(experience))
+  const draftGenerated = question
+    ? (generatedQuestions[question.id] ?? Boolean(question.draft))
+    : false
+
+  const updateDraft = (value: string) => {
+    if (!question) return
+    setDrafts((current) => ({ ...current, [question.id]: value }))
+  }
+
+  const generateDraft = async () => {
+    if (!match || !question || currentExperienceIds.length === 0) return
+
+    setGeneratingQuestionId(question.id)
+    setDraftErrors((current) => ({ ...current, [question.id]: '' }))
+    try {
+      const result = await createCoverLetterDraft({
+        matchId: match.id,
+        questionId: question.id,
+        questionText: question.text,
+        experienceIds: currentExperienceIds,
+      })
+      setDrafts((current) => ({ ...current, [question.id]: result.draft }))
+      setGeneratedQuestions((current) => ({ ...current, [question.id]: true }))
+    } catch (reason) {
+      setDraftErrors((current) => ({
+        ...current,
+        [question.id]:
+          reason instanceof Error ? reason.message : '초안을 작성하지 못했습니다.',
+      }))
+    } finally {
+      setGeneratingQuestionId(null)
+    }
+  }
+
+  const addExperience = (experienceId: string) => {
+    if (!question || !experiences.some((experience) => experience.id === experienceId)) {
+      return
+    }
+
+    setSelectedExperienceIds((current) => {
+      const selected = current[question.id] ?? []
+      if (selected.includes(experienceId)) return current
+      return { ...current, [question.id]: [...selected, experienceId] }
+    })
+  }
+
+  const removeExperience = (experienceId: string) => {
+    if (!question) return
+    setSelectedExperienceIds((current) => ({
+      ...current,
+      [question.id]: (current[question.id] ?? []).filter(
+        (id) => id !== experienceId,
+      ),
+    }))
+  }
 
   return (
     <section className="matching-column flex min-h-0 flex-col overflow-hidden rounded-[14px] bg-panel max-[760px]:hidden max-[760px]:h-full">
@@ -29,7 +105,7 @@ export function MatchingCanvas({
       {!match ? (
         <EmptyMatching onStart={onStart} />
       ) : (
-        <div className="min-h-0 overflow-auto px-3.5 pb-4 [overscroll-behavior:contain] [scrollbar-width:thin]">
+        <div className="flex min-h-0 flex-1 flex-col px-3.5">
           <QuestionTabs
             match={match}
             activeQuestion={activeQuestion}
@@ -37,10 +113,17 @@ export function MatchingCanvas({
           />
           {question && (
             <>
-              {/* <QuestionCard question={question} number={activeQuestion + 1} /> */}
-              <RecommendationList
-                recommendations={question.recommendations}
-                onExperience={onExperience}
+              <ActiveQuestion text={question.text} />
+              <DraftEditor
+                selectedExperiences={currentExperiences}
+                generated={draftGenerated}
+                value={currentDraft}
+                loading={generatingQuestionId === question.id}
+                error={draftErrors[question.id]}
+                onDropExperience={addExperience}
+                onRemoveExperience={removeExperience}
+                onChange={updateDraft}
+                onGenerate={() => void generateDraft()}
               />
             </>
           )}
@@ -48,6 +131,10 @@ export function MatchingCanvas({
       )}
     </section>
   )
+}
+
+function ActiveQuestion({ text }: { text: string }) {
+  return <h3 className="mt-2 mb-0 text-[15px] leading-[1.6]">{text}</h3>
 }
 
 function EmptyMatching({ onStart }: { onStart: () => void }) {
@@ -98,64 +185,5 @@ function QuestionTabs({
         </button>
       ))}
     </div>
-  )
-}
-
-function RecommendationList({
-  recommendations,
-  onExperience,
-}: {
-  recommendations: Recommendation[]
-  onExperience: (id: string) => void
-}) {
-  return (
-    <section className="mt-5">
-      <header className="mx-0.5 mb-2.5 flex items-end justify-between">
-        <div className="flex items-center gap-[7px]">
-          <h3 className="m-0 text-[15px]">추천 경험</h3>
-        </div>
-        <p className="m-0 text-[12px] text-[#898b94]">
-          관련성과 근거의 명확성을 기준으로 정렬했습니다.
-        </p>
-      </header>
-
-      {recommendations.length ? (
-        recommendations.map((recommendation) => (
-          <RecommendationCard
-            key={recommendation.experienceId}
-            recommendation={recommendation}
-            onExperience={onExperience}
-          />
-        ))
-      ) : (
-        <PanelMessage>현재 기록에서는 충분히 적합한 경험을 찾지 못했습니다.</PanelMessage>
-      )}
-    </section>
-  )
-}
-
-function RecommendationCard({
-  recommendation,
-  onExperience,
-}: {
-  recommendation: Recommendation
-  onExperience: (id: string) => void
-}) {
-  return (
-    <button
-      className="mb-[9px] grid w-full grid-cols-[auto_1fr_auto_auto] items-center gap-3 rounded-[10px] border border-[#e5e6e9] bg-white p-3.5 text-left hover:border-[#b8c3ef]"
-      onClick={() => onExperience(recommendation.experienceId)}
-    >
-      <span className="text-lg font-black text-brand">
-        {String(recommendation.rank).padStart(2, '0')}
-      </span>
-      <span>
-        <strong className="block text-xs leading-normal">{recommendation.reason}</strong>
-        <small className="mt-[5px] block text-[12px] text-[#92949d]">
-          경험 상세에서 역할과 성과 근거를 확인할 수 있습니다.
-        </small>
-      </span>
-      <MatchLevelChip level={recommendation.matchLevel} />
-    </button>
   )
 }

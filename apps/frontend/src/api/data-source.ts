@@ -1,5 +1,16 @@
 import { createMockMatch, experiences, resumes } from '../mocks/data'
-import type { DataMode, ExperienceDetail, ExperienceSummary, MatchInput, MatchLevel, MatchResult, ResumeDetail, ResumeSummary } from '../types'
+import type {
+  CoverLetterDraft,
+  DataMode,
+  DraftInput,
+  ExperienceDetail,
+  ExperienceSummary,
+  MatchInput,
+  MatchLevel,
+  MatchResult,
+  ResumeDetail,
+  ResumeSummary,
+} from '../types'
 
 const mode = (import.meta.env.VITE_DATA_MODE || 'mock') as DataMode
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace(/\/$/, '')
@@ -86,8 +97,51 @@ export async function getMatch(id: string, input: MatchInput): Promise<MatchResu
     id: String(item.id), status: String(item.status) as MatchResult['status'], jobDescription: String(item.job_description || input.jobDescription),
     company: input.company, role: input.role,
     questions: questions.map(question => ({
-      id: String(question.id), text: String(question.text), requiredElements: [],
+      id: String(question.id), text: String(question.text), draft: question.draft as string | undefined, requiredElements: [],
       recommendations: ((question.recommendations || []) as Array<Record<string, unknown>>).map(rec => ({ experienceId: String(rec.experience_id), rank: Number(rec.rank), score: Number(rec.score), matchLevel: level(Number(rec.score)), reason: String(rec.reason || '직무 및 문항과 관련성이 높은 경험입니다.') })),
     })),
+  }
+}
+
+export async function createCoverLetterDraft(input: DraftInput): Promise<CoverLetterDraft> {
+  return apiOrMock(
+    async () => {
+      const data = await request<{
+        draft: string
+        used_experience_ids?: string[]
+      }>('/cover-letters/drafts', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: userId,
+          match_id: input.matchId,
+          question_id: input.questionId,
+          question_text: input.questionText,
+          selected_experience_ids: input.experienceIds,
+        }),
+      })
+
+      return {
+        draft: data.draft,
+        usedExperienceIds: data.used_experience_ids ?? input.experienceIds,
+      }
+    },
+    () => createMockDraft(input),
+  )
+}
+
+function createMockDraft(input: DraftInput): CoverLetterDraft {
+  const selectedExperiences = input.experienceIds.flatMap((id) => {
+    const experience = experiences.find((item) => item.id === id)
+    return experience ? [experience] : []
+  })
+  const evidence = selectedExperiences
+    .map((experience) => `${experience.title}: ${experience.summary}`)
+    .join(' ')
+
+  return {
+    draft: evidence
+      ? `${input.questionText}\n\n${evidence}`
+      : `${input.questionText}\n\n선택된 경험을 바탕으로 작성할 초안입니다.`,
+    usedExperienceIds: input.experienceIds,
   }
 }
