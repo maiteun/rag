@@ -45,8 +45,6 @@ export function WorkspacePage({ initialMatchingOpen, onHome }: WorkspacePageProp
       <main className="flex min-w-0 flex-col overflow-hidden rounded-r-[18px] border border-l-0 border-line bg-white max-[760px]:h-[calc(100dvh-62px)] max-[760px]:rounded-none max-[760px]:border-0">
         <WorkspaceHeader
           match={workspace.match}
-          experienceCount={workspace.experiences.length}
-          resumeCount={workspace.resumes.length}
           onMatch={() => workspace.setMatchModalOpen(true)}
         />
         <WorkspaceDashboard

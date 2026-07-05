@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { ExperiencePanel } from '../experiences/components/experience-panel'
 import { JobDescriptionPanel } from '../matching/components/job-description-panel'
 import { MatchingCanvas } from '../matching/components/matching-canvas'
@@ -31,7 +32,18 @@ const dashboardBase =
   'grid min-h-0 flex-1 gap-[18px] px-9 pb-[30px] max-[1100px]:gap-3.5 max-[1100px]:px-6 max-[760px]:block max-[760px]:px-3.5 max-[760px]:pb-3.5'
 
 export function WorkspaceDashboard(props: WorkspaceDashboardProps) {
-  return props.match ? <MatchedDashboard {...props} /> : <DefaultDashboard {...props} />
+  const [draggedExperienceId, setDraggedExperienceId] = useState<string | null>(null)
+
+  return props.match ? (
+    <MatchedDashboard
+      {...props}
+      draggedExperienceId={draggedExperienceId}
+      onExperienceDragStart={setDraggedExperienceId}
+      onExperienceDragEnd={() => setDraggedExperienceId(null)}
+    />
+  ) : (
+    <DefaultDashboard {...props} />
+  )
 }
 
 function DefaultDashboard(props: WorkspaceDashboardProps) {
@@ -48,17 +60,24 @@ function DefaultDashboard(props: WorkspaceDashboardProps) {
       />
       <MatchingCanvas
         match={null}
+        experiences={props.experiences}
         activeQuestion={props.activeQuestion}
         onQuestionChange={props.onQuestionChange}
         onStart={props.onMatch}
-        onExperience={props.onExperience}
       />
       <ResumePanel resumes={props.resumes} onOpen={props.onResume} />
     </div>
   )
 }
 
-function MatchedDashboard(props: WorkspaceDashboardProps & { match: MatchResult | null }) {
+interface MatchedDashboardProps extends WorkspaceDashboardProps {
+  match: MatchResult | null
+  draggedExperienceId: string | null
+  onExperienceDragStart: (id: string) => void
+  onExperienceDragEnd: () => void
+}
+
+function MatchedDashboard(props: MatchedDashboardProps) {
   if (!props.match) return null
 
   const sourceRows = props.resumeExpanded
@@ -78,6 +97,10 @@ function MatchedDashboard(props: WorkspaceDashboardProps & { match: MatchResult 
           loading={props.loading}
           error={props.error}
           onOpen={props.onExperience}
+          draggable
+          draggedExperienceId={props.draggedExperienceId}
+          onDragStart={props.onExperienceDragStart}
+          onDragEnd={props.onExperienceDragEnd}
         />
         <ResumePanel
           resumes={props.resumes}
@@ -89,10 +112,10 @@ function MatchedDashboard(props: WorkspaceDashboardProps & { match: MatchResult 
       </div>
       <MatchingCanvas
         match={props.match}
+        experiences={props.experiences}
         activeQuestion={props.activeQuestion}
         onQuestionChange={props.onQuestionChange}
         onStart={props.onMatch}
-        onExperience={props.onExperience}
       />
       <JobDescriptionPanel match={props.match} />
     </div>

@@ -56,9 +56,22 @@ export interface Recommendation {
 export interface MatchQuestion {
   id: string
   text: string
+  draft?: string
   intent?: string
   requiredElements: string[]
   recommendations: Recommendation[]
+}
+
+export interface DraftInput {
+  matchId: string
+  questionId: string
+  questionText: string
+  experienceIds: string[]
+}
+
+export interface CoverLetterDraft {
+  draft: string
+  usedExperienceIds: string[]
 }
 
 export interface MatchResult {
