@@ -18,6 +18,14 @@ class RetrievalSearchRequest(BaseModel):
         description="가져올 청크 수. 기본 20, 최대 100.",
         examples=[20],
     )
+    query_weights: list[float] | None = Field(
+        default=None,
+        description=(
+            "queries와 같은 길이면, 질의 임베딩을 이 가중치로 평균낸 단일 벡터로 검색한다"
+            " (문항·JD 결합용). None이면 질의별 유사도 최댓값으로 병합(질의 변형용)."
+        ),
+        examples=[[1.0, 1.0]],
+    )
 
 
 class RetrievalChunkResponse(BaseModel):
