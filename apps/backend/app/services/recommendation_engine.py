@@ -153,6 +153,25 @@ class RagRecommendationEngine:
         recommended_ids = [item.block_id for item in reranked[:k]]
         return reranked, recommended_ids, meta_by_id
 
+    @staticmethod
+    def _reason(item: RerankedCandidate) -> str:
+        """관찰 신호 기반의 짧은 추천 이유 (지어내는 문장이 아니라 사실 태그 조합 — 하드룰1)."""
+        parts: list[str] = []
+        if item.relevance >= 0.66:
+            parts.append("질의 관련도 높음")
+        elif item.relevance > 0.0:
+            parts.append("질의와 관련")
+        sig = item.signals
+        if sig.get("has_metric"):
+            parts.append("성과 수치 있음")
+        if sig.get("has_role"):
+            parts.append("본인 역할 명확")
+        if sig.get("metadata_boost", 0) > 0:
+            parts.append("요구 역량 일치")
+        if sig.get("sources_count", 0) >= 2:
+            parts.append("복수 출처 확인")
+        return " · ".join(parts[:3]) or "질의와 의미적으로 관련"
+
     def recommend(self, user_id: str, job_description: str, question: str) -> list[MatchRecommendation]:
         reranked, recommended_ids, _ = self._run_pipeline(user_id, job_description, question)
         by_id = {item.block_id: item for item in reranked}
@@ -161,6 +180,7 @@ class RagRecommendationEngine:
                 experience_id=block_id,
                 rank=index + 1,
                 score=round(by_id[block_id].final_score, 4),
+                reason=self._reason(by_id[block_id]),
                 signals=by_id[block_id].signals,
             )
             for index, block_id in enumerate(recommended_ids)
