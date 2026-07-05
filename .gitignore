@@ -13,3 +13,5 @@ uv.lock
 tmp/
 infra/postgres/data/*
 testdata/
+
+.DS_Store
