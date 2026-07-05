@@ -28,6 +28,7 @@ class Experience(TimestampMixin, Base):
     skills: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     competencies: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     keywords: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    facets: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     has_metric: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     has_role: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     has_result: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

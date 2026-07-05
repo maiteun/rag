@@ -23,6 +23,32 @@ QUESTION_WEIGHT = 1.0
 JD_WEIGHT = 1.0
 
 
+def _unique_nonempty(values: list[str]) -> list[str]:
+    seen = set()
+    result = []
+    for value in values:
+        if not value or not value.strip():
+            continue
+        normalized = value.strip()
+        key = normalized.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(normalized)
+    return result
+
+
+def _facet_terms_from_metadata(metadata: dict) -> list[str]:
+    return _unique_nonempty(
+        [
+            metadata.get("facet_capability") or "",
+            metadata.get("facet_theme") or "",
+            metadata.get("facet_label") or "",
+            *list(metadata.get("facet_details") or []),
+        ]
+    )
+
+
 class RecommendationEngine(Protocol):
     """문항별 경험 추천 엔진 계약. 구현은 RAG 파트 담당."""
 
@@ -92,29 +118,50 @@ class RagRecommendationEngine:
                 user_id=user_id, queries=queries, query_weights=weights, top_k=CANDIDATE_POOL_SIZE
             )
         )
-        best_relevance: dict[str, float] = {}
+        best_match = {}
         for chunk in chunks:
             if not chunk.experience_id:
                 continue
-            prev = best_relevance.get(chunk.experience_id)
-            if prev is None or chunk.similarity > prev:
-                best_relevance[chunk.experience_id] = chunk.similarity
-        if not best_relevance:
+            prev = best_match.get(chunk.experience_id)
+            if prev is None or chunk.similarity > prev[0]:
+                best_match[chunk.experience_id] = (chunk.similarity, chunk)
+        if not best_match:
             return [], [], {}
 
         # 경험 메타 로드 → R3 입력 후보 + R7용 메타 (completeness_score 0~100 → /100)
         candidates: list[RerankCandidate] = []
         meta_by_id: dict[str, ExperienceMeta] = {}
-        for experience_id, relevance in best_relevance.items():
+        for experience_id, (relevance, matched_chunk) in best_match.items():
             experience = self.experiences.get(experience_id)
             if experience is None:
                 continue
+            chunk_metadata = matched_chunk.metadata or {}
+            facet_terms = _facet_terms_from_metadata(chunk_metadata)
+            experience_terms = _unique_nonempty(
+                [
+                    *list(experience.skills or []),
+                    *list(getattr(experience, "competencies", []) or []),
+                    *[
+                        facet.get("capability", "")
+                        for facet in (getattr(experience, "facets", []) or [])
+                        if isinstance(facet, dict)
+                    ],
+                    *facet_terms,
+                ]
+            )
             # R2 ⑤ 소프트 부스트 (skills/type). 매칭 없으면 0 → 후보 유지(하드 필터 아님).
-            metadata_boost, _ = compute_metadata_boost(
-                experience_skills=list(experience.skills or []),
+            metadata_boost, metadata_signals = compute_metadata_boost(
+                experience_skills=experience_terms,
                 experience_type=getattr(experience, "experience_type", None),
                 requirement_terms=boost_terms,
             )
+            retrieval_metadata = {
+                "chunk_id": matched_chunk.chunk_id,
+                "chunk_type": matched_chunk.chunk_type,
+                "facet_capability": chunk_metadata.get("facet_capability"),
+                "facet_label": chunk_metadata.get("facet_label"),
+                "facet_details": chunk_metadata.get("facet_details") or [],
+            }
             candidates.append(
                 RerankCandidate(
                     block_id=experience_id,
@@ -124,16 +171,22 @@ class RagRecommendationEngine:
                     sources_count=len(experience.sources),
                     completeness=float(experience.completeness_score) / 100.0,
                     metadata_boost=metadata_boost,
+                    metadata_signals=metadata_signals,
+                    retrieval_metadata=retrieval_metadata,
                 )
             )
+            source_excerpts = [
+                source.source_excerpt or source.source_document_id for source in experience.sources
+            ]
+            for excerpt in chunk_metadata.get("facet_evidence") or []:
+                if excerpt and excerpt not in source_excerpts:
+                    source_excerpts.append(excerpt)
             meta_by_id[experience_id] = ExperienceMeta(
                 has_metric=bool(experience.has_metric),
                 has_role=bool(experience.has_role),
                 skills=list(experience.skills or []),
                 competencies=list(experience.competencies or []),
-                sources=[
-                    source.source_excerpt or source.source_document_id for source in experience.sources
-                ],
+                sources=source_excerpts,
                 star_complete=all([experience.situation, experience.action, experience.result]),
             )
         if not candidates:

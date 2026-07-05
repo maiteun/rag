@@ -37,6 +37,8 @@ class RerankCandidate:
     completeness: float = 0.0  # 0~1
     preference: float = 0.0  # R6 연결 전엔 0
     metadata_boost: float = 0.0  # R2 ⑤ 메타 소프트 부스트(skills/type). 이미 스케일된 가산항
+    metadata_signals: list[str] = field(default_factory=list)
+    retrieval_metadata: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -108,6 +110,8 @@ def rerank(
                     "completeness": round(_clip(candidate.completeness), 4),
                     "search_score": candidate.search_score,
                     "metadata_boost": round(candidate.metadata_boost, 4),
+                    "metadata_signals": list(candidate.metadata_signals),
+                    "retrieval": dict(candidate.retrieval_metadata),
                     "weights": {"w1": w1, "w2": w2, "w5": w5, "w4": w4},
                 },
             )

@@ -7,6 +7,7 @@ from app.repositories.experience_repository import ExperienceRepository
 from app.schemas.common import ApiResponse
 from app.schemas.experience import (
     ExperienceDetailResponse,
+    ExperienceFacetResponse,
     ExperienceListItem,
     ExperienceListResponse,
     ExperienceQuestionResponse,
@@ -59,6 +60,7 @@ def get_experience(experience_id: str, db: DbSession) -> ApiResponse[ExperienceD
         skills=experience.skills,
         competencies=experience.competencies,
         keywords=experience.keywords,
+        facets=[ExperienceFacetResponse.model_validate(facet) for facet in (experience.facets or [])],
         completeness_score=experience.completeness_score,
         confidence_score=experience.confidence_score,
         sources=[

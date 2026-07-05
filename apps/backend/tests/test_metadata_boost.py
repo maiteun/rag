@@ -125,7 +125,7 @@ def _exp(skills, experience_type="project"):
     )
 
 
-def test_engine_wires_skill_boost(db_session):
+def test_engine_wires_skill_boost():
     # 두 경험 벡터 유사도 동일. 쿼리에 'FastAPI' → FastAPI 보유 경험이 부스트로 1위.
     class FakeRetrieval:
         def search(self, request):
@@ -140,9 +140,66 @@ def test_engine_wires_skill_boost(db_session):
         def get(self, eid):
             return exps[eid]
 
-    engine = RagRecommendationEngine(db=db_session, retrieval=FakeRetrieval(), experiences=FakeExpRepo())
+    engine = RagRecommendationEngine(db=None, retrieval=FakeRetrieval(), experiences=FakeExpRepo())
     reranked, _, _ = engine._run_pipeline(USER, "백엔드 개발", "FastAPI 성능 개선 경험")
     assert reranked[0].block_id == "B"
     assert reranked[0].signals["metadata_boost"] > 0
     # A는 부스트 0이지만 후보에서 제외되지 않음 (소프트)
     assert {c.block_id for c in reranked} == {"A", "B"}
+
+
+def test_engine_uses_facet_capability_for_boost_and_signals():
+    class FakeRetrieval:
+        def search(self, request):
+            return [
+                RetrievalChunkResponse(
+                    chunk_id="facet-1",
+                    experience_id="A",
+                    chunk_text="x",
+                    chunk_type="facet",
+                    similarity=0.80,
+                    metadata={
+                        "facet_capability": "collaboration",
+                        "facet_label": "coordinated handoffs",
+                        "facet_details": ["meeting notes"],
+                        "facet_evidence": ["coordinated the team"],
+                    },
+                ),
+                RetrievalChunkResponse(
+                    chunk_id="summary-2",
+                    experience_id="B",
+                    chunk_text="x",
+                    chunk_type="experience_summary",
+                    similarity=0.80,
+                ),
+            ]
+
+    exps = {
+        "A": SimpleNamespace(
+            has_metric=False,
+            has_role=False,
+            skills=[],
+            competencies=[],
+            facets=[{"capability": "collaboration"}],
+            sources=[],
+            situation=None,
+            action=None,
+            result=None,
+            completeness_score=0,
+            experience_type="project",
+        ),
+        "B": _exp(skills=[], experience_type="project"),
+    }
+
+    class FakeExpRepo:
+        def get(self, eid):
+            return exps[eid]
+
+    engine = RagRecommendationEngine(db=None, retrieval=FakeRetrieval(), experiences=FakeExpRepo())
+    reranked, _, meta_by_id = engine._run_pipeline(USER, "jd", "collaboration experience")
+
+    assert reranked[0].block_id == "A"
+    assert reranked[0].signals["metadata_boost"] > 0
+    assert "skill_boost:collaboration" in reranked[0].signals["metadata_signals"]
+    assert reranked[0].signals["retrieval"]["facet_capability"] == "collaboration"
+    assert "coordinated the team" in meta_by_id["A"].sources
