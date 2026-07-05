@@ -1,9 +1,18 @@
+from pathlib import Path
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 from app.ai.clients.base import ExperienceLLMClient
 from app.core.config import Settings
 from app.schemas.llm import ExperienceExtractionResult
+
+
+EXPERIENCE_EXTRACTION_PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "experience_extraction.md"
+
+
+def load_experience_extraction_prompt() -> str:
+    return EXPERIENCE_EXTRACTION_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
 
 class OpenAIExperienceLLMClient(ExperienceLLMClient):
@@ -16,13 +25,7 @@ class OpenAIExperienceLLMClient(ExperienceLLMClient):
         ).with_structured_output(ExperienceExtractionResult)
         self.prompt = ChatPromptTemplate.from_messages(
             [
-                (
-                    "system",
-                    "You convert a user's career records into a RAG-ready experience vault. "
-                    "Extract resume-ready experiences without inventing facts. "
-                    "Return an empty experiences array when the document has no meaningful career experience. "
-                    "Use null for unclear fields, include evidence excerpts, and include missing_fields questions.",
-                ),
+                ("system", load_experience_extraction_prompt()),
                 (
                     "human",
                     "Extract career experiences from this document.\n\nDocument:\n{cleaned_text}",
