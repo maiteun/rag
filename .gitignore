@@ -10,3 +10,9 @@ CLAUDE.md
 uv.lock
 tmp/
 infra/postgres/data/*
+
+# Frontend build and local files
+node_modules/
+dist/
+.pnpm-store/
+.DS_Store
