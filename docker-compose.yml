@@ -20,13 +20,15 @@ services:
     build:
       context: ./apps/backend
     environment:
-      DATABASE_URL: postgresql+psycopg://user:password@postgres:5432/experience_vault
-      LLM_PROVIDER: fake
-      LLM_MODEL: gpt-4.1-mini
-      EMBEDDING_PROVIDER: fake
-      EMBEDDING_MODEL: text-embedding-3-small
-      EMBEDDING_DIMENSION: 1536
-      OPENAI_API_KEY: ""
+      DATABASE_URL: ${BACKEND_DATABASE_URL:-postgresql+psycopg://user:password@postgres:5432/experience_vault}
+      LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4.1-mini}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-fake}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-1536}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      NOTION_API_TOKEN: ${NOTION_API_TOKEN:-}
+      NOTION_API_VERSION: ${NOTION_API_VERSION:-2026-03-11}
     ports:
       - "8000:8000"
     depends_on:

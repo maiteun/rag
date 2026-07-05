@@ -8,6 +8,7 @@ KHU:DArchive 프로젝트 문서의 진입점입니다.
 - [사용자 시나리오](scenarios.md): 주요 사용자 흐름
 - [시스템 구성](architecture.md): 시스템 구조, 기술 스택, 데이터 흐름
 - [API 문서](api.md): 주요 API와 OpenAPI 산출물
+- [경험 facet 구조화](structuring-facet-spec.md): capability facet 스키마, theme 규칙, RAG 사용 방식
 - [로컬 개발 및 실행](development.md): backend 로컬 실행, DB, 테스트, OpenAPI export
 
 ## 관련 경로

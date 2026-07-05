@@ -55,6 +55,17 @@ class ExperienceQuestionResponse(BaseModel):
     status: str
 
 
+class ExperienceFacetResponse(BaseModel):
+    capability: str
+    theme: str | None = None
+    label: str
+    situation: str | None = None
+    action: str | None = None
+    result: str | None = None
+    details: list[str] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+
+
 class ExperienceDetailResponse(ORMModel):
     id: str
     title: str
@@ -72,6 +83,7 @@ class ExperienceDetailResponse(ORMModel):
     skills: list[str] = Field(default_factory=list)
     competencies: list[str] = Field(default_factory=list)
     keywords: list[str] = Field(default_factory=list)
+    facets: list[ExperienceFacetResponse] = Field(default_factory=list)
     completeness_score: Decimal
     confidence_score: Decimal
     sources: list[ExperienceSourceResponse] = Field(default_factory=list)

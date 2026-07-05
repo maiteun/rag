@@ -684,6 +684,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/selections:
+    post:
+      tags:
+      - selections
+      summary: 선택 이벤트 기록
+      description: 추천 후보 중 사용자가 고른 선택을 저장합니다. 나중에 R6(선호 학습)가 이 이벤트를 읽어 학습합니다.
+      operationId: create_selection_api_selections_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectionEventCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_SelectionEventCreateResponse_NoneType_'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_NoneType_ErrorMeta_'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_NoneType_ErrorMeta_'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_NoneType_ErrorMeta_'
+        '502':
+          description: Upstream service error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_NoneType_ErrorMeta_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     ApiResponse_DocumentProcessResponse_NoneType_:
@@ -1063,6 +1113,35 @@ components:
       - status
       - message
       title: ApiResponse[RetrievalSearchResponse, NoneType]
+    ApiResponse_SelectionEventCreateResponse_NoneType_:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        status:
+          type: integer
+          title: Status
+        message:
+          type: string
+          title: Message
+        data:
+          anyOf:
+          - $ref: '#/components/schemas/SelectionEventCreateResponse'
+          - type: 'null'
+        code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Code
+        meta:
+          type: 'null'
+          title: Meta
+      type: object
+      required:
+      - success
+      - status
+      - message
+      title: ApiResponse[SelectionEventCreateResponse, NoneType]
     ApiResponse_TextDocumentCreateResponse_NoneType_:
       properties:
         success:
@@ -1099,7 +1178,7 @@ components:
           title: User Id
         file:
           type: string
-          contentMediaType: application/octet-stream
+          format: binary
           title: File
         title:
           anyOf:
@@ -1260,6 +1339,11 @@ components:
             type: string
           type: array
           title: Keywords
+        facets:
+          items:
+            $ref: '#/components/schemas/ExperienceFacetResponse'
+          type: array
+          title: Facets
         completeness_score:
           type: string
           pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
@@ -1285,6 +1369,49 @@ components:
       - completeness_score
       - confidence_score
       title: ExperienceDetailResponse
+    ExperienceFacetResponse:
+      properties:
+        capability:
+          type: string
+          title: Capability
+        theme:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Theme
+        label:
+          type: string
+          title: Label
+        situation:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Situation
+        action:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Action
+        result:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Result
+        details:
+          items:
+            type: string
+          type: array
+          title: Details
+        evidence:
+          items:
+            type: string
+          type: array
+          title: Evidence
+      type: object
+      required:
+      - capability
+      - label
+      title: ExperienceFacetResponse
     ExperienceListItem:
       properties:
         id:
@@ -1566,6 +1693,11 @@ components:
           description: 이 경험을 추천한 이유
           examples:
           - 문제와 해결 과정이 명확함
+        signals:
+          additionalProperties: true
+          type: object
+          title: Signals
+          description: 리랭킹 디버깅용 신호 (relevance/trust/frequency, has_metric 등)
       type: object
       required:
       - experience_id
@@ -1968,6 +2100,18 @@ components:
           default: 20
           examples:
           - 20
+        query_weights:
+          anyOf:
+          - items:
+              type: number
+            type: array
+          - type: 'null'
+          title: Query Weights
+          description: queries와 같은 길이면, 질의 임베딩을 이 가중치로 평균낸 단일 벡터로 검색한다 (문항·JD 결합용).
+            None이면 질의별 유사도 최댓값으로 병합(질의 변형용).
+          examples:
+          - - 1.0
+            - 1.0
       type: object
       required:
       - user_id
@@ -1985,6 +2129,71 @@ components:
       required:
       - chunks
       title: RetrievalSearchResponse
+    SelectionEventCreate:
+      properties:
+        user_id:
+          type: string
+          title: User Id
+          description: 사용자 ID (UUID). 없는 사용자면 자동 생성됩니다.
+          examples:
+          - 00000000-0000-0000-0000-000000000001
+        question_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Question Type
+          description: R1이 분류한 문항 유형
+        job_description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Job Description
+          description: JD 원문 (나중에 JD별 학습용, 지금은 저장만)
+        question_text:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Question Text
+          description: 문항 원문
+        exposed_block_ids:
+          items:
+            type: string
+          type: array
+          title: Exposed Block Ids
+          description: 노출된 후보 block_id 배열
+        selected_block_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Selected Block Id
+          description: 선택한 block_id (스킵 시 None)
+        rejected_block_ids:
+          items:
+            type: string
+          type: array
+          title: Rejected Block Ids
+          description: 노출됐지만 선택 안 된 것 (soft negative)
+        signals_snapshot:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Signals Snapshot
+          description: 선택 시점 후보별 신호 스냅샷
+      type: object
+      required:
+      - user_id
+      title: SelectionEventCreate
+    SelectionEventCreateResponse:
+      properties:
+        selection_id:
+          type: string
+          title: Selection Id
+          description: 저장된 선택 이벤트 ID
+      type: object
+      required:
+      - selection_id
+      title: SelectionEventCreateResponse
     TextDocumentCreateRequest:
       properties:
         user_id:
@@ -2058,11 +2267,6 @@ components:
         type:
           type: string
           title: Error Type
-        input:
-          title: Input
-        ctx:
-          type: object
-          title: Context
       type: object
       required:
       - loc

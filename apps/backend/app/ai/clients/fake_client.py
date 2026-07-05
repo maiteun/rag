@@ -1,6 +1,7 @@
 from app.ai.clients.base import ExperienceLLMClient
 from app.schemas.llm import (
     EvidenceDraft,
+    FacetDraft,
     ExperienceDraft,
     ExperienceExtractionResult,
     MissingFieldDraft,
@@ -66,6 +67,18 @@ class FakeExperienceLLMClient(ExperienceLLMClient):
             skills=skills,
             competencies=["problem solving"],
             keywords=skills + ["career record"],
+            facets=[
+                FacetDraft(
+                    capability="problem solving",
+                    theme="프로젝트 수행",
+                    label="Extracted source-backed project contribution",
+                    situation=excerpt,
+                    action=excerpt,
+                    result=result,
+                    details=skills,
+                    evidence=[excerpt],
+                )
+            ],
             evidence=[EvidenceDraft(excerpt=excerpt, field="summary", confidence=0.6, span_start=0, span_end=len(excerpt))],
             missing_fields=missing,
             confidence_score=60,

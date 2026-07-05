@@ -1,0 +1,4 @@
+{"id": "g-data", "question": "데이터를 분석해 문제를 해결하고 인사이트를 도출한 경험", "job_description": "데이터 분석가. 데이터 전처리와 모델링, 통계적 검증 경험 우대.", "relevant": ["ex1"], "note": "예시 라벨 — 데이터분석 질의엔 ex1이 정답. 네가 검토/수정할 것."}
+{"id": "g-content", "question": "콘텐츠를 기획하고 SNS 채널을 운영한 경험", "job_description": "콘텐츠 마케터. SNS 운영, 브랜드 페르소나 기획, 트렌드 리서치.", "relevant": ["ex3"], "note": "예시 라벨 — 콘텐츠/SNS 질의엔 ex3이 정답."}
+{"id": "g-video", "question": "영상·자막 편집과 사용자 경험(UX)을 개선한 경험", "job_description": "영상 편집 서비스 기획. STT/자막, 오버레이 UI, 사용자 스터디.", "relevant": ["ex2"], "note": "예시 라벨 — 영상/UX 질의엔 ex2가 정답."}
+{"id": "g-selfdriven", "question": "자기주도적으로 계획을 수립하고 끝까지 추진한 경험", "job_description": "자기주도성과 실행력이 중요한 직무.", "relevant": ["ex1", "ex2", "ex3"], "graded": {"ex1": 2, "ex2": 2, "ex3": 2}, "note": "예시 — 셋 다 자기주도 프로젝트라 모두 관련. 등급은 네가 조정."}

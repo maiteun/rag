@@ -21,6 +21,21 @@ from app.utils.scoring import calculate_completeness, contains_metric, status_fo
 from app.utils.text import contains_any
 
 
+def _unique_nonempty(values: list[str]) -> list[str]:
+    seen = set()
+    result = []
+    for value in values:
+        if not value or not value.strip():
+            continue
+        normalized = value.strip()
+        key = normalized.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(normalized)
+    return result
+
+
 class DocumentProcessingService:
     def __init__(
         self,
@@ -90,6 +105,22 @@ class DocumentProcessingService:
     @staticmethod
     def _is_meaningful_experience(draft: ExperienceDraft) -> bool:
         evidence_text = " ".join(e.excerpt for e in draft.evidence if e.excerpt)
+        facet_text = " ".join(
+            " ".join(
+                part
+                for part in [
+                    facet.capability,
+                    facet.label,
+                    facet.situation or "",
+                    facet.action or "",
+                    facet.result or "",
+                    " ".join(facet.details),
+                    " ".join(facet.evidence),
+                ]
+                if part
+            )
+            for facet in draft.facets
+        )
         core_parts = [
             draft.summary,
             draft.organization,
@@ -100,6 +131,7 @@ class DocumentProcessingService:
             draft.star.result,
             draft.star.learned,
             evidence_text,
+            facet_text,
         ]
         has_core_content = any(part and part.strip() for part in core_parts)
         has_classification = bool(draft.experience_type or draft.skills or draft.competencies or draft.keywords)
@@ -134,6 +166,15 @@ class DocumentProcessingService:
 
     def _persist_experience(self, user_id: str, draft: ExperienceDraft) -> Experience:
         completeness = calculate_completeness(draft)
+        facets = [facet.model_dump() for facet in draft.facets]
+        facet_capabilities = [facet.capability for facet in draft.facets]
+        facet_keywords = [
+            value
+            for facet in draft.facets
+            for value in [facet.label, *(facet.details or [])]
+        ]
+        competencies = _unique_nonempty([*draft.competencies, *facet_capabilities])
+        keywords = _unique_nonempty([*draft.keywords, *facet_keywords])
         text = " ".join(
             part or ""
             for part in [
@@ -160,8 +201,9 @@ class DocumentProcessingService:
             result=draft.star.result,
             learned=draft.star.learned,
             skills=draft.skills,
-            competencies=draft.competencies,
-            keywords=draft.keywords,
+            competencies=competencies,
+            keywords=keywords,
+            facets=facets,
             has_metric=contains_metric(draft.star.result) or contains_metric(draft.star.action),
             has_role=bool(draft.role),
             has_result=bool(draft.star.result),
