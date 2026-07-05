@@ -54,10 +54,32 @@ KHU:DArchive는 사용자의 자기소개서, 이력서, 포트폴리오 메모 
 └── README.md
 ```
 
+## 빠른 실행
+
+Docker Desktop을 실행한 뒤 저장소 루트에서 전체 서비스를 시작합니다.
+
+```bash
+docker compose up --build
+```
+
+최초 실행이라면 별도 터미널에서 데모 데이터를 생성합니다.
+
+```bash
+python3 scripts/seed_demo.py
+```
+
+- 프론트엔드: `http://localhost:5173`
+- API 문서: `http://localhost:8000/docs`
+- 상태 확인: `http://localhost:8000/health`
+
+프론트엔드는 Compose 빌드 시 API 모드로 설정되고 `/api` 요청을 백엔드 컨테이너로 전달합니다. 상세한 로컬 개발 절차와 OpenAI provider 설정은 [로컬 개발 및 실행](docs/development.md)을 참고합니다.
+
 ## 문서
 
+- [전체 실행 및 데이터 투입 가이드](docs/howtorun.md)
 - [프로젝트 개요](docs/project.md)
 - [사용자 시나리오](docs/scenarios.md)
 - [시스템 구성](docs/architecture.md)
 - [API 문서](docs/api.md)
 - [로컬 개발 및 실행](docs/development.md)
+- [데이터 투입 인수인계](docs/data-import.md)
