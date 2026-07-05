@@ -36,7 +36,7 @@ OPENAI_API_KEY=sk-...
 
 `LLM_MODEL`은 비용과 속도를 고려한 기본 추천값으로 `gpt-5.4-mini`를 사용합니다. 품질이 더 중요하면 `gpt-5.5`, 대량 테스트처럼 비용이 더 중요하면 `gpt-5.4-nano`를 사용할 수 있습니다. Embedding은 `text-embedding-3-small`과 `1536` 차원을 유지합니다.
 
-주의: `docker compose up --build`로 백엔드까지 함께 실행할 때는 `docker-compose.yml`의 `backend.environment` 값이 사용됩니다. 루트 `.env`만 수정해도 백엔드 컨테이너 설정이 자동으로 바뀌지는 않으므로, Compose 전체 실행에서 OpenAI를 쓰려면 `docker-compose.yml`의 backend 환경변수도 같은 값으로 맞추거나 `env_file: .env`를 추가해야 합니다.
+Compose는 루트 `.env`의 `LLM_PROVIDER`, `LLM_MODEL`, `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSION`, `OPENAI_API_KEY`, `NOTION_API_TOKEN`, `VITE_USER_ID`를 읽습니다. 값을 바꾼 뒤에는 백엔드 설정과 프론트 빌드에 반영되도록 `docker compose up --build`를 다시 실행합니다. Compose 내부 DB 주소를 직접 바꿔야 할 때만 `DATABASE_URL` 대신 `BACKEND_DATABASE_URL`을 사용합니다.
 
 ## 개발 모드: DB만 Docker Compose로 실행
 
@@ -71,21 +71,30 @@ uvicorn app.main:app --reload
 - `http://localhost:8000/redoc`
 - `http://localhost:8000/openapi.json`
 
-## 전체 실행: DB와 백엔드를 함께 실행
+## 전체 실행: DB, 백엔드, 프론트엔드 함께 실행
 
-팀 공유, 데모, 통합 실행 확인이 필요할 때는 Compose로 PostgreSQL과 백엔드를 함께 실행합니다.
+팀 공유, 데모, 통합 실행 확인이 필요할 때는 Compose로 PostgreSQL, 백엔드, 프론트엔드를 함께 실행합니다.
 
 ```bash
 docker compose up --build
 ```
 
-백엔드 컨테이너는 `postgres` 서비스가 준비된 뒤 `alembic upgrade head`를 실행하고, 이후 FastAPI 서버를 `0.0.0.0:8000`으로 시작합니다.
+백엔드 컨테이너는 `postgres` 서비스가 준비된 뒤 마이그레이션과 FastAPI 서버를 시작합니다. 프론트엔드는 백엔드 health check가 통과하면 시작하며, `/api` 요청을 내부 백엔드 서비스로 전달합니다.
 
-전체 실행에서도 API 주소는 동일합니다.
+전체 실행 주소:
 
+- 프론트엔드: `http://localhost:5173`
 - `http://localhost:8000/docs`
 - `http://localhost:8000/redoc`
 - `http://localhost:8000/openapi.json`
+
+최초 실행 시 DB는 비어 있습니다. fake provider로 화면에 표시할 데모 이력서와 경험을 생성합니다.
+
+```bash
+python3 scripts/seed_demo.py
+```
+
+스크립트는 동일 사용자의 경험이 이미 있으면 중복 생성을 건너뜁니다. 강제로 추가하려면 `--force`를 사용합니다.
 
 ## 서비스별 실행
 
@@ -101,6 +110,28 @@ docker compose up -d postgres
 
 ```bash
 docker compose up --build postgres backend
+```
+
+프론트엔드까지 전체 실행:
+
+```bash
+docker compose up --build
+```
+
+## 프론트엔드 로컬 개발
+
+백엔드를 Compose로 실행하고 프론트엔드만 Vite 개발 서버로 실행하려면 `apps/frontend/.env.local`을 생성합니다.
+
+```env
+VITE_DATA_MODE=api
+VITE_API_BASE_URL=http://localhost:8000/api
+VITE_USER_ID=00000000-0000-0000-0000-000000000001
+```
+
+```bash
+cd apps/frontend
+npm install
+npm run dev
 ```
 
 실행 중인 서비스를 종료합니다.
