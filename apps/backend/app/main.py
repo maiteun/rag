@@ -3,6 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
+    cover_letters,
     documents,
     experiences,
     health,
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(matches.router, prefix="/api", tags=["matches"])
     app.include_router(resumes.router, prefix="/api", tags=["resumes"])
     app.include_router(selections.router, prefix="/api", tags=["selections"])
+    app.include_router(cover_letters.router, prefix="/api", tags=["cover-letters"])
     return app
 
 

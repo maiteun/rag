@@ -11,6 +11,7 @@ from app.services.context_packet import ContextPacket, ExperienceMeta, build_con
 from app.services.metadata_boost import compute_metadata_boost, extract_query_terms
 from app.services.preference import W4_DEFAULT, compute_preferences_batch
 from app.services.query_decomposition_service import QueryDecompositionService
+from app.services.reason_generation import ReasonItem, generate_reasons
 from app.services.reranking import RerankCandidate, RerankedCandidate, rerank
 from app.services.retrieval_service import RetrievalService
 
@@ -226,17 +227,48 @@ class RagRecommendationEngine:
         return " · ".join(parts[:3]) or "질의와 의미적으로 관련"
 
     def recommend(self, user_id: str, job_description: str, question: str) -> list[MatchRecommendation]:
+        # 매칭 목록은 검색·리랭킹된 경험 전체를 점수 높은 순으로 랭킹해 반환한다.
+        # R4 적응형 top-k 컷은 여기서 목록을 자르지 않고, 강력추천 여부만 signals.strong으로 표시한다
+        # (컷은 build_packet/역질문 경로에서 계속 사용).
+        # 이유(reason)는 RAG가 정리한 grounded 번들(제목+매칭 facet+신호)을 생성 LLM에 넘겨 문장으로 받는다.
         reranked, recommended_ids, _ = self._run_pipeline(user_id, job_description, question)
-        by_id = {item.block_id: item for item in reranked}
+        strong = set(recommended_ids)
+
+        items: list[ReasonItem] = []
+        for item in reranked:
+            retrieval = item.signals.get("retrieval") or {}
+            experience = self.experiences.get(item.block_id)
+            title = (experience.title if experience else None) or item.block_id
+            # facet 매칭이 아니면(STAR chunk 등) 경험의 situation/result를 근거로 넘겨 생성이 비지 않게 한다.
+            label = retrieval.get("facet_label")
+            if not label and experience is not None:
+                label = (experience.situation or experience.result or "")[:140] or None
+            items.append(
+                ReasonItem(
+                    experience_id=item.block_id,
+                    title=title,
+                    capability=retrieval.get("facet_capability"),
+                    label=label,
+                    details=list(retrieval.get("facet_details") or []),
+                    signal_tags=self._reason(item).split(" · "),
+                )
+            )
+        reasons = generate_reasons(question, job_description, items)
+
         return [
             MatchRecommendation(
-                experience_id=block_id,
+                experience_id=item.block_id,
                 rank=index + 1,
-                score=round(by_id[block_id].final_score, 4),
-                reason=self._reason(by_id[block_id]),
-                signals=by_id[block_id].signals,
+                score=round(item.final_score, 4),
+                reason=reasons.get(item.block_id) or self._reason(item),
+                signals={
+                    **item.signals,
+                    "strong": item.block_id in strong,
+                    "matched_facet": (item.signals.get("retrieval") or {}).get("facet_capability"),
+                    "matched_facet_label": (item.signals.get("retrieval") or {}).get("facet_label"),
+                },
             )
-            for index, block_id in enumerate(recommended_ids)
+            for index, item in enumerate(reranked)
         ]
 
     def build_packet(self, user_id: str, job_description: str, question: str) -> ContextPacket:
